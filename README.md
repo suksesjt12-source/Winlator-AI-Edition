@@ -4,16 +4,19 @@
 
 ## Two development tracks
 
-The existing Android application still uses the upstream Winlator runtime. In parallel, a separate native engine core is now being developed under `engine/`. The native core is intended to become the long-term execution backend; it is not yet capable of running Windows applications.
+The existing Android application still uses the upstream Winlator runtime. In parallel, a separate native engine core is being developed under `engine/` as the intended long-term execution backend. The native core now maps PE images and executes a tiny x86-64 instruction subset in tests, but it cannot yet run ordinary Windows applications.
 
 ## Independent engine: current status
 
 - Bounds-checked PE32 / PE32+ executable metadata parser.
 - x86 and x86-64 machine-type detection.
 - Entry-point, image-base and section-table inspection.
-- Native CMake test target and GitHub Actions test workflow.
+- PE header/section mapping, PE32 HIGHLOW and PE32+ DIR64 relocations.
+- Import descriptor/thunk parsing through an explicit caller-supplied resolver.
+- A deliberately small x86-64 interpreter subset (NOP, RET, MOV immediate, ADD/SUB RAX immediate).
+- Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
 
-**Important:** the current native engine is an initial loader-analysis milestone, not a working Windows emulator. It does not yet map or execute PE images, translate x86/x64 instructions to ARM64, implement Windows APIs, or provide Direct3D/audio/input compatibility.
+**Important:** this is not yet a working Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no full x86/x64-to-ARM64 execution engine, Windows API layer, graphics/audio/input compatibility, or Android JNI integration.
 
 ## Android application today
 

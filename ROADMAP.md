@@ -21,18 +21,19 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [x] Host-native CMake tests and GitHub Actions workflow
 
 ### Milestone 2: PE image loader
-- [ ] Map PE headers and sections into a managed virtual address space
-- [ ] Implement image-base selection and base relocations
-- [ ] Parse import descriptors and resolve imports through a controlled module registry
+- [x] Map PE headers and sections into a bounded virtual byte array
+- [x] Select load base and apply PE32 HIGHLOW / PE32+ DIR64 relocations
+- [x] Parse import descriptors and resolve entries through a caller-supplied resolver callback
 - [ ] Handle TLS and define exception/unwind metadata strategy
-- [ ] Add malformed-image, relocation and import-resolution tests
+- [x] Add malformed-image, relocation and import-resolution tests
 
 ### Milestone 3: x86/x86-64 execution on ARM64
-- [ ] Define CPU state, flags, memory access and exception model
-- [ ] Implement a minimal interpreter for a documented instruction subset
-- [ ] Add x86-64 decoding and instruction semantic tests
-- [ ] Add ARM64 JIT only after interpreter correctness is established
-- [ ] Add differential tests against known reference results
+- [x] Define initial x86-64 GPR, RIP and RFLAGS state
+- [x] Implement a small interpreter subset: NOP, RET, MOV immediate, ADD/SUB RAX immediate
+- [x] Add initial instruction semantic and mapped-entry test cases
+- [ ] Expand instruction decoding, memory operands, branches, stack operations and exception behavior
+- [ ] Add ARM64 JIT only after broad interpreter correctness is established
+- [ ] Add differential tests against a trusted reference implementation
 
 ### Milestone 4: Windows ABI and system services
 - [ ] Process and thread lifecycle

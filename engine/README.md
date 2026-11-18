@@ -10,11 +10,12 @@ This is the independent native-engine development track. It is separate from the
 - PE32 HIGHLOW and PE32+ DIR64 base relocations.
 - Import descriptor/thunk parsing with a caller-provided symbol resolver.
 - A small x86-64 interpreter subset: NOP, RET, MOV immediate to register, ADD RAX immediate and SUB RAX immediate.
-- Host-native CMake tests for valid, malformed, relocation, import and interpreter cases.
+- A test that runs a tiny synthetic entry-point sequence from mapped PE section bytes.
+- Debug-mode CMake tests for valid, malformed, relocation, import and interpreter cases.
 
 ## Explicit limitations
 
-This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The mapped image is data only and this milestone does not jump to its entry point or execute a loaded PE file.
+This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The PE loader does not automatically transfer control to a loaded image's entry point. The test only passes a synthetic byte sequence from the mapped section to the subset interpreter; this does not demonstrate execution of a real Windows program.
 
 Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread and memory APIs, system DLLs, exception dispatch, TLS callbacks, registry, graphics, audio, input, Android JNI integration or game compatibility.
 

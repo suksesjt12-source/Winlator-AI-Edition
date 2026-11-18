@@ -20,7 +20,7 @@ def ensure_cmake_subdirectory(cmake_file: Path, directory: str) -> None:
     content = cmake_file.read_text(encoding="utf-8")
     directive = f"add_subdirectory({directory})"
     if directive not in {line.strip() for line in content.splitlines()}:
-        cmake_file.write_text(content.rstrip() + "\\n\\n" + directive + "\\n",
+        cmake_file.write_text(content.rstrip() + "\n\n" + directive + "\n",
                               encoding="utf-8")
 
 

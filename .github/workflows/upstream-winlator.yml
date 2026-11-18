@@ -16,6 +16,9 @@ permissions:
 jobs:
   build-upstream:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout AI Edition overlay
         uses: actions/checkout@v4
@@ -35,12 +38,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install required Android build tools
         run: |
-          sdkmanager --install \
+          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses
+          sdkmanager --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
             "platforms;android-35" \
             "ndk;24.0.8215888" \
             "cmake;3.22.1"

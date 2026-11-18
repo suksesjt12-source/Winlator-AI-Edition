@@ -29,9 +29,11 @@ This roadmap separates the existing upstream-based Android app from the new inde
 
 ### Milestone 3: x86/x86-64 execution on ARM64
 - [x] Define initial x86-64 GPR, RIP and RFLAGS state
-- [x] Implement a small interpreter subset: NOP, RET, MOV immediate, ADD/SUB RAX immediate
-- [x] Add initial instruction semantic and mapped-entry test cases
-- [ ] Expand instruction decoding, memory operands, branches, stack operations and exception behavior
+- [x] Implement a small interpreter subset: NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP accumulator immediate
+- [x] Add short JMP/JE/JNE branch handling and semantic tests
+- [x] Add initial mapped-entry byte-sequence test
+- [ ] Expand instruction decoding, memory operands, stack operations and exception behavior
+- [ ] Compile and integrate the native core into the Android app through JNI (cross-compile CI is being added)
 - [ ] Add ARM64 JIT only after broad interpreter correctness is established
 - [ ] Add differential tests against a trusted reference implementation
 

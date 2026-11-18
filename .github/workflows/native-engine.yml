@@ -23,3 +23,41 @@ jobs:
         run: cmake --build build/engine --parallel 2
       - name: Run native engine tests
         run: ctest --test-dir build/engine --output-on-failure
+
+  build-android-arm64:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager was not found under $ANDROID_HOME/cmdline-tools" >&2
+            exit 1
+          fi
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
+          set -o pipefail
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "ndk;24.0.8215888" \
+            "cmake;3.22.1"
+      - name: Configure ARM64 Android build
+        run: |
+          cmake -S engine -B build/engine-android-arm64 \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/24.0.8215888/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Build native engine for arm64-v8a
+        run: cmake --build build/engine-android-arm64 --target aie_execution_core --parallel 2
+      - name: Upload Android ARM64 native core
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-Edition-native-core-arm64-v8a
+          path: build/engine-android-arm64/libaie_execution_core.a
+          if-no-files-found: error

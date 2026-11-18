@@ -29,4 +29,15 @@ The first device target is an ARM64 Android phone using MediaTek Helio G100 and 
 
 ## Current state
 
-This repository currently contains an independently written Android prototype. It does not yet contain the upstream Winlator source, Wine, Box64, DXVK, Vulkan drivers or a working container implementation. The integration phase has not been marked complete.
+The upstream integration now builds successfully in GitHub Actions. The workflow checks out the upstream Winlator repository and its app, Vortek and Gladio submodules, applies the AI Assistant Activity and navigation item, then builds and uploads a debug APK.
+
+Verified build:
+- Workflow run: https://github.com/suksesjt12-source/Winlator-AI-Edition/actions/runs/44256112036
+- Artifact: Winlator-AI-Edition-upstream-debug
+- The artifact is a debug ZIP containing the built APK; it is not a signed release.
+
+The build reuses the upstream container, shortcut, file manager and component-management implementation. This does not mean all runtime payloads are embedded in the APK: Wine, Box64, system files and other components continue to follow the upstream installation/download model where required.
+
+The new AI Assistant is currently an offline, rule-based information and setup-advice screen. It does not yet inspect live container settings or apply optimizations automatically.
+
+The CI build has not been installed or tested on physical ARM64 hardware. Container creation, component installation, EXE launch, graphics, controls, audio and thermal behaviour remain device-validation tasks.

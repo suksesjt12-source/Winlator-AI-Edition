@@ -16,6 +16,14 @@ def replace_once(path: Path, before: str, after: str, label: str) -> None:
     path.write_text(content.replace(before, after, 1), encoding="utf-8")
 
 
+def ensure_cmake_subdirectory(cmake_file: Path, directory: str) -> None:
+    content = cmake_file.read_text(encoding="utf-8")
+    directive = f"add_subdirectory({directory})"
+    if directive not in {line.strip() for line in content.splitlines()}:
+        cmake_file.write_text(content.rstrip() + "\\n\\n" + directive + "\\n",
+                              encoding="utf-8")
+
+
 def install_launcher_manifest(manifest: Path) -> None:
     content = manifest.read_text(encoding="utf-8")
     launcher_name = 'android:name="com.winlator.LauncherActivity"'

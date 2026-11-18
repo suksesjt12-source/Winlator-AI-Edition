@@ -18,7 +18,7 @@ static void put64(std::vector<std::uint8_t>& b, std::size_t p, std::uint64_t v) 
 }
 
 static std::vector<std::uint8_t> make_pe64() {
-    std::vector<std::uint8_t> b(0x2a0, 0);
+    std::vector<std::uint8_t> b(0x2c0, 0);
     b[0] = 'M'; b[1] = 'Z';
     put32(b, 0x3c, 0x80);
     b[0x80] = 'P'; b[0x81] = 'E';
@@ -34,10 +34,8 @@ static std::vector<std::uint8_t> make_pe64() {
     put32(b, opt + 56, 0x4000);
     put32(b, opt + 60, 0x200);
     put32(b, opt + 108, 16);
-    // Import directory: RVA 0x3000, one descriptor plus null descriptor.
     put32(b, opt + 112 + 8, 0x3000);
     put32(b, opt + 112 + 12, 40);
-    // Base-relocation directory: RVA 0x2000.
     put32(b, opt + 112 + 5 * 8, 0x2000);
     put32(b, opt + 112 + 5 * 8 + 4, 12);
 
@@ -62,33 +60,30 @@ static std::vector<std::uint8_t> make_pe64() {
     const std::size_t idata = sec + 80;
     const char idata_name[] = ".idata";
     for (int i = 0; i < 6; ++i) b[idata + i] = static_cast<std::uint8_t>(idata_name[i]);
-    put32(b, idata + 8, 0x60);
+    put32(b, idata + 8, 0x80);
     put32(b, idata + 12, 0x3000);
-    put32(b, idata + 16, 0x60);
+    put32(b, idata + 16, 0x80);
     put32(b, idata + 20, 0x240);
     put32(b, idata + 36, 0xc0000040);
 
-    // .text contains a 64-bit absolute address requiring DIR64 relocation.
     put64(b, 0x208, 0x140001234ULL);
-
-    // Relocation block: page 0x1000, DIR64 at offset 8, then ABSOLUTE padding.
     put32(b, 0x220, 0x1000);
     put32(b, 0x224, 12);
     put16(b, 0x228, static_cast<std::uint16_t>((10U << 12) | 8U));
     put16(b, 0x22a, 0);
 
-    // Import descriptor at RVA 0x3000.
-    put32(b, 0x240, 0x3020); // OriginalFirstThunk
-    put32(b, 0x24c, 0x3018); // Name
-    put32(b, 0x250, 0x3030); // FirstThunk
+    // Two import descriptors occupy 0x3000-0x3028. Tables follow them.
+    put32(b, 0x240, 0x3038); // OriginalFirstThunk
+    put32(b, 0x24c, 0x3028); // Name
+    put32(b, 0x250, 0x3048); // FirstThunk
     const char module[] = "KERNEL32.dll";
-    for (std::size_t i = 0; i < sizeof(module); ++i) b[0x258 + i] = module[i];
-    put64(b, 0x260, 0x3040); // Lookup thunk -> IMAGE_IMPORT_BY_NAME
-    put64(b, 0x268, 0);
-    put64(b, 0x270, 0);      // IAT target
-    put16(b, 0x280, 0);      // Hint
+    for (std::size_t i = 0; i < sizeof(module); ++i) b[0x268 + i] = module[i];
+    put64(b, 0x278, 0x3058);
+    put64(b, 0x280, 0);
+    put64(b, 0x288, 0);
+    put16(b, 0x298, 0);
     const char function_name[] = "Beep";
-    for (std::size_t i = 0; i < sizeof(function_name); ++i) b[0x282 + i] = function_name[i];
+    for (std::size_t i = 0; i < sizeof(function_name); ++i) b[0x29a + i] = function_name[i];
     return b;
 }
 
@@ -112,20 +107,22 @@ int main() {
     assert(loaded.ok);
     assert(loaded.image.memory.size() == 0x4000);
     assert(loaded.image.entry_point() == actual + 0x1000);
-    assert(loaded.image.memory[0x1000] == 0);
+    // Original 0x140001234 plus the 0x100000 load delta = 0x140101234.
     assert(loaded.image.memory[0x1008] == 0x34);
     assert(loaded.image.memory[0x1009] == 0x12);
-    assert(loaded.image.memory[0x1010] == 0x40); // copied section byte data is zero-initialized.
-    assert(loaded.image.memory[0x3030] == 0x78);
-    assert(loaded.image.memory[0x3031] == 0x56);
-    assert(loaded.image.memory[0x3032] == 0x34);
-    assert(loaded.image.memory[0x3033] == 0x12);
+    assert(loaded.image.memory[0x100a] == 0x10);
+    assert(loaded.image.memory[0x100b] == 0x40);
+    // The resolver's function address is written to the IAT.
+    assert(loaded.image.memory[0x3048] == 0x78);
+    assert(loaded.image.memory[0x3049] == 0x56);
+    assert(loaded.image.memory[0x304a] == 0x34);
+    assert(loaded.image.memory[0x304b] == 0x12);
 
     const auto no_rebase = aie::engine::map_pe_image(file, preferred,
         [](const std::string&, const aie::engine::ImportedSymbol&)
             -> std::optional<std::uint64_t> { return 0x1122334455667788ULL; });
     assert(no_rebase.ok);
-    assert(no_rebase.image.memory[0x2008] == 0); // relocation table lives at RVA 0x2000.
+    assert(no_rebase.image.memory[0x100a] == 0);
 
     std::cout << "PE image loader tests passed\n";
     return 0;

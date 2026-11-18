@@ -13,6 +13,10 @@ For the actual Winlator runtime base, use the **Upstream Winlator AI Build** out
 
 The workflow now publishes the APK itself and a SHA-256 checksum as prerelease assets. Open the newest **Winlator AI Edition Debug** prerelease and download **app-debug.apk** directly; no ZIP extraction is required. The Actions artifact remains available as a separate backup.
 
+Latest verified direct APK: [app-debug.apk — ai-debug-8](https://github.com/suksesjt12-source/Winlator-AI-Edition/releases/download/ai-debug-8/app-debug.apk). The matching checksum file is [app-debug.apk.sha256](https://github.com/suksesjt12-source/Winlator-AI-Edition/releases/download/ai-debug-8/app-debug.apk.sha256).
+
+This build uses package ID `com.winlator.aiedition` and FileProvider authority `com.winlator.aiedition.FileProvider`, so it is designed to coexist with a standard Winlator install that uses `com.winlator`. It targets ARM64 (`arm64-v8a`) and Android API 26 or later.
+
 The separate **Android CI** artifact named **Winlator-AI-Edition-debug** is only the original standalone prototype. It is not the Winlator runtime build and cannot run Windows EXE files.
 
 ## Included in the upstream-based build

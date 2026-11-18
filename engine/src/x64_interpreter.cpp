@@ -61,6 +61,18 @@ void set_arithmetic_flags(X64CpuState& state, std::uint64_t result,
     if (overflow) state.rflags |= FLAG_OF;
 }
 
+void set_logic_flags(X64CpuState& state, std::uint64_t result, unsigned width) {
+    const std::uint64_t mask = width == 64
+        ? std::numeric_limits<std::uint64_t>::max() : 0xffffffffULL;
+    const std::uint64_t sign = width == 64 ? (1ULL << 63) : (1ULL << 31);
+    result &= mask;
+    state.rflags &= ~ARITHMETIC_FLAGS;
+    state.rflags |= 0x2;
+    if (even_parity(static_cast<std::uint8_t>(result))) state.rflags |= FLAG_PF;
+    if (result == 0) state.rflags |= FLAG_ZF;
+    if ((result & sign) != 0) state.rflags |= FLAG_SF;
+}
+
 X64RunResult stop(X64CpuState state, X64StopReason reason,
                   std::size_t count, const char* message) {
     X64RunResult result;
@@ -95,12 +107,12 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
         }
 
         const std::uint8_t opcode = code[cursor++];
-        if (opcode == 0x90 && rex == 0) {
+        if (opcode == 0x90) {
             state.rip = cursor;
             ++executed;
             continue;
         }
-        if (opcode == 0xc3 && rex == 0) {
+        if (opcode == 0xc3) {
             state.rip = cursor;
             ++executed;
             return stop(state, X64StopReason::Returned, executed, "");
@@ -117,6 +129,80 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                                              : read32(code + cursor);
             state.registers[reg] = value; // A 32-bit write zero-extends to 64 bits.
             state.rip = cursor + immediate_size;
+            ++executed;
+            continue;
+        }
+
+
+        if (opcode == 0x89 || opcode == 0x8b ||
+            opcode == 0x31 || opcode == 0x33) {
+            if (cursor >= code_size)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "Register instruction is missing its ModRM byte.");
+            const std::uint8_t modrm = code[cursor++];
+            const std::uint8_t mod = modrm >> 6;
+            if (mod != 3)
+                return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                            "Memory-addressing ModRM forms are not implemented.");
+            const std::size_t reg = ((modrm >> 3) & 7U) + ((rex & 0x04U) ? 8U : 0U);
+            const std::size_t rm = (modrm & 7U) + ((rex & 0x01U) ? 8U : 0U);
+            const bool wide = (rex & 0x08U) != 0;
+            const unsigned width = wide ? 64U : 32U;
+            const std::uint64_t mask = wide
+                ? std::numeric_limits<std::uint64_t>::max() : 0xffffffffULL;
+            const bool writes_rm = opcode == 0x89 || opcode == 0x31;
+            const std::size_t destination = writes_rm ? rm : reg;
+            const std::uint64_t left = state.registers[destination] & mask;
+            const std::uint64_t right =
+                state.registers[writes_rm ? reg : rm] & mask;
+
+            if (opcode == 0x89 || opcode == 0x8b) {
+                state.registers[destination] = right;
+            } else {
+                const std::uint64_t value = (left ^ right) & mask;
+                state.registers[destination] = value;
+                set_logic_flags(state, value, width);
+            }
+            state.rip = cursor;
+            ++executed;
+            continue;
+        }
+
+        if (opcode == 0x3d) { // CMP accumulator, imm32
+            if (cursor > code_size || 4U > code_size - cursor)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "CMP immediate is truncated.");
+            const bool wide = (rex & 0x08U) != 0;
+            const unsigned width = wide ? 64U : 32U;
+            const std::uint64_t lhs = state.registers[0];
+            const std::uint32_t immediate = read32(code + cursor);
+            const std::uint64_t rhs = wide
+                ? static_cast<std::uint64_t>(static_cast<std::int64_t>(
+                      static_cast<std::int32_t>(immediate)))
+                : immediate;
+            const std::uint64_t raw = lhs - rhs;
+            const std::uint64_t value =
+                width == 64 ? raw : (raw & 0xffffffffULL);
+            set_arithmetic_flags(state, value, lhs, rhs, width, true);
+            state.rip = cursor + 4U;
+            ++executed;
+            continue;
+        }
+
+        if ((opcode == 0x74 || opcode == 0x75 || opcode == 0xeb) && rex == 0) {
+            if (cursor >= code_size)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "Short branch displacement is truncated.");
+            const auto displacement = static_cast<std::int8_t>(code[cursor++]);
+            bool take = opcode == 0xeb;
+            if (opcode == 0x74) take = (state.rflags & FLAG_ZF) != 0;
+            if (opcode == 0x75) take = (state.rflags & FLAG_ZF) == 0;
+            const std::int64_t next = static_cast<std::int64_t>(cursor);
+            const std::int64_t target = take ? next + displacement : next;
+            if (target < 0 || static_cast<std::uint64_t>(target) >= code_size)
+                return stop(state, X64StopReason::InvalidInstructionPointer, executed,
+                            "Short branch target is outside the code buffer.");
+            state.rip = static_cast<std::uint64_t>(target);
             ++executed;
             continue;
         }

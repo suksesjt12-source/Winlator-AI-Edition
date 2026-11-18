@@ -32,8 +32,9 @@ struct X64RunResult {
 };
 
 // Executes a deliberately small, testable x86-64 subset from a byte buffer.
-// Supported: NOP, RET, MOV r32/r64,imm, ADD RAX,imm32 and SUB RAX,imm32.
-// This is not a complete x86 decoder and must not be used as a Windows runtime.
+// Supports a small subset: NOP, RET, MOV immediate/register, XOR register,
+// ADD/SUB/CMP RAX immediate, and short JMP/JE/JNE. ModRM memory operands are
+// intentionally unsupported. This is not a Windows runtime.
 X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                             X64CpuState initial_state = {},
                             std::size_t maximum_steps = 100000);

@@ -1,4 +1,6 @@
 #include "aie/pe_loader.hpp"
+#include "aie/guest_memory.hpp"
+#include "aie/x64_interpreter.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -333,5 +335,199 @@ PeLoadResult map_pe_image(const std::vector<std::uint8_t>& file,
     result.image = std::move(loaded);
     return result;
 }
+
+
+
+GuestPeLoadResult map_pe_image_to_guest_memory(
+    const std::vector<std::uint8_t>& file, GuestMemory& guest_memory,
+    std::uint64_t requested_base, const ImportResolver& resolver,
+    std::size_t maximum_image_size) {
+    GuestPeLoadResult result;
+    auto loaded = map_pe_image(file, requested_base, resolver, maximum_image_size);
+    if (!loaded.ok) {
+        result.error = loaded.error;
+        return result;
+    }
+
+    const std::uint64_t load_base = loaded.image.load_base;
+    if ((load_base % GUEST_PAGE_SIZE) != 0) {
+        result.error = "PE load base must be aligned to the guest page size.";
+        return result;
+    }
+
+    const std::size_t image_size = loaded.image.memory.size();
+    const std::size_t page_size = static_cast<std::size_t>(GUEST_PAGE_SIZE);
+    if (image_size == 0 ||
+        image_size > std::numeric_limits<std::size_t>::max() - (page_size - 1U)) {
+        result.error = "PE image size cannot be rounded safely to guest pages.";
+        return result;
+    }
+    const std::size_t mapped_size =
+        ((image_size + page_size - 1U) / page_size) * page_size;
+    const std::size_t page_count = mapped_size / page_size;
+
+    std::string memory_error;
+    if (!guest_memory.map(load_base, mapped_size,
+                          GuestMemoryRead | GuestMemoryWrite, &memory_error)) {
+        result.error = "Could not reserve PE guest memory: " + memory_error;
+        return result;
+    }
+
+    const auto rollback = [&guest_memory, load_base, mapped_size]() {
+        std::string ignored;
+        guest_memory.unmap(load_base, mapped_size, &ignored);
+    };
+
+    if (!guest_memory.write(load_base, loaded.image.memory.data(), image_size)) {
+        rollback();
+        result.error = "Could not copy the relocated PE image into guest memory.";
+        return result;
+    }
+
+    // Remove all permissions first, then enable only pages owned by headers
+    // or sections. This leaves alignment gaps inaccessible by default.
+    if (!guest_memory.protect(load_base, mapped_size, GuestMemoryNone, &memory_error)) {
+        rollback();
+        result.error = "Could not apply initial guest-memory protections: " + memory_error;
+        return result;
+    }
+
+    std::vector<std::uint8_t> page_permissions(page_count, GuestMemoryNone);
+    const std::size_t header_pages =
+        (static_cast<std::size_t>(loaded.image.info.size_of_headers) +
+         page_size - 1U) / page_size;
+    if (header_pages > page_count) {
+        rollback();
+        result.error = "PE headers exceed the rounded guest mapping.";
+        return result;
+    }
+    for (std::size_t page = 0; page < header_pages; ++page)
+        page_permissions[page] |= GuestMemoryRead;
+
+    constexpr std::uint32_t SECTION_MEM_EXECUTE = 0x20000000U;
+    constexpr std::uint32_t SECTION_MEM_READ = 0x40000000U;
+    constexpr std::uint32_t SECTION_MEM_WRITE = 0x80000000U;
+
+    for (const auto& section : loaded.image.info.sections) {
+        const std::uint64_t extent =
+            std::max(section.virtual_size, section.raw_size);
+        if (extent == 0) continue;
+
+        const std::uint64_t begin = section.virtual_address;
+        const std::uint64_t end = begin + extent;
+        if (end < begin || end > image_size) {
+            rollback();
+            result.error = "PE section exceeds the loaded image while applying page permissions.";
+            return result;
+        }
+
+        std::uint8_t permissions = GuestMemoryNone;
+        if ((section.characteristics & SECTION_MEM_READ) != 0)
+            permissions |= GuestMemoryRead;
+        if ((section.characteristics & SECTION_MEM_WRITE) != 0)
+            permissions |= GuestMemoryWrite;
+        if ((section.characteristics & SECTION_MEM_EXECUTE) != 0)
+            permissions |= GuestMemoryExecute;
+
+        const std::size_t first_page =
+            static_cast<std::size_t>(begin / page_size);
+        const std::size_t last_page =
+            static_cast<std::size_t>((end + page_size - 1U) / page_size);
+        if (last_page > page_count) {
+            rollback();
+            result.error = "PE section page permissions exceed the guest mapping.";
+            return result;
+        }
+        for (std::size_t page = first_page; page < last_page; ++page) {
+            page_permissions[page] |= permissions;
+            if ((page_permissions[page] & (GuestMemoryWrite | GuestMemoryExecute)) ==
+                (GuestMemoryWrite | GuestMemoryExecute)) {
+                rollback();
+                result.error = "PE section layout would create a writable and executable guest page.";
+                return result;
+            }
+        }
+    }
+
+    // Apply contiguous runs of identical permissions to reduce protection calls.
+    std::size_t first_page = 0;
+    while (first_page < page_count) {
+        const std::uint8_t permissions = page_permissions[first_page];
+        std::size_t end_page = first_page + 1U;
+        while (end_page < page_count &&
+               page_permissions[end_page] == permissions) {
+            ++end_page;
+        }
+        const std::uint64_t range_base =
+            load_base + static_cast<std::uint64_t>(first_page * page_size);
+        const std::size_t range_size = (end_page - first_page) * page_size;
+        if (!guest_memory.protect(range_base, range_size, permissions, &memory_error)) {
+            rollback();
+            result.error = "Could not apply PE section page permissions: " + memory_error;
+            return result;
+        }
+        first_page = end_page;
+    }
+
+    result.ok = true;
+    result.info = std::move(loaded.image.info);
+    result.load_base = load_base;
+    result.entry_point = load_base + result.info.entry_point_rva;
+    result.mapped_size = mapped_size;
+    return result;
+}
+
+X64RunResult run_pe_entry_subset(const GuestPeLoadResult& image,
+                                 GuestMemory& guest_memory,
+                                 X64CpuState initial_state,
+                                 std::size_t maximum_steps) {
+    if (!image.ok) {
+        X64RunResult failed;
+        failed.reason = X64StopReason::InvalidInstructionPointer;
+        failed.error = "PE image is not mapped successfully.";
+        return failed;
+    }
+    if (image.info.architecture != PeArchitecture::X86_64) {
+        X64RunResult failed;
+        failed.reason = X64StopReason::UnsupportedInstruction;
+        failed.error = "The current PE entry runner supports x86-64 images only.";
+        return failed;
+    }
+
+    for (const auto& section : image.info.sections) {
+        const std::uint64_t extent =
+            std::max(section.virtual_size, section.raw_size);
+        const std::uint64_t begin = section.virtual_address;
+        const std::uint64_t end = begin + extent;
+        if ((section.characteristics & 0x20000000U) == 0 ||
+            image.info.entry_point_rva < begin ||
+            image.info.entry_point_rva >= end || extent == 0) {
+            continue;
+        }
+        if (extent > std::numeric_limits<std::size_t>::max()) {
+            X64RunResult failed;
+            failed.reason = X64StopReason::InvalidInstructionPointer;
+            failed.error = "PE entry section is too large for the current interpreter.";
+            return failed;
+        }
+
+        std::vector<std::uint8_t> code(static_cast<std::size_t>(extent));
+        if (!guest_memory.fetch(image.load_base + begin, code.data(), code.size())) {
+            X64RunResult failed;
+            failed.reason = X64StopReason::MemoryFault;
+            failed.error = "PE entry section is not mapped with execute permission.";
+            return failed;
+        }
+        initial_state.rip = image.info.entry_point_rva - section.virtual_address;
+        return run_x64_subset(code.data(), code.size(), initial_state,
+                              maximum_steps, &guest_memory);
+    }
+
+    X64RunResult failed;
+    failed.reason = X64StopReason::InvalidInstructionPointer;
+    failed.error = "PE entry point does not belong to an executable section.";
+    return failed;
+}
+
 
 } // namespace aie::engine

@@ -1,5 +1,6 @@
 #include "aie/pe_loader.hpp"
 #include "aie/x64_interpreter.hpp"
+#include "aie/guest_memory.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -123,11 +124,71 @@ int main() {
     assert(entry_test.returned());
     assert(entry_test.state.registers[0] == 42);
 
+    // Map the relocated PE into page-protected guest virtual memory.
+    aie::engine::GuestMemory guest_memory(0x10000U);
+    const auto guest_loaded = aie::engine::map_pe_image_to_guest_memory(
+        file, guest_memory, actual,
+        [](const std::string& module, const aie::engine::ImportedSymbol& symbol)
+            -> std::optional<std::uint64_t> {
+            if (module == "KERNEL32.dll" && !symbol.by_ordinal && symbol.name == "Beep")
+                return 0x7fff12345678ULL;
+            return std::nullopt;
+        });
+    assert(guest_loaded.ok);
+    assert(guest_loaded.load_base == actual);
+    assert(guest_loaded.entry_point == actual + 0x1000);
+    assert(guest_loaded.mapped_size == 0x4000);
+    assert(guest_memory.mapped_bytes() == 0x4000);
+
+    std::uint8_t byte = 0;
+    // Headers are readable but neither writable nor executable.
+    assert(guest_memory.read(actual, &byte, 1) && byte == 'M');
+    assert(!guest_memory.write(actual, &byte, 1));
+    assert(!guest_memory.fetch(actual, &byte, 1));
+
+    // .text is executable and readable but not writable.
+    std::vector<std::uint8_t> guest_code(0x20);
+    assert(guest_memory.fetch(actual + 0x1000, guest_code.data(), guest_code.size()));
+    assert(!guest_memory.write(actual + 0x1000, &byte, 1));
+
+    // Execute the PE entry section using only the current interpreter subset.
+    const auto mapped_entry = aie::engine::run_pe_entry_subset(
+        guest_loaded, guest_memory);
+    assert(mapped_entry.returned());
+    assert(mapped_entry.state.registers[0] == 42);
+
+    // .reloc is read-only data and .idata is readable/writable data.
+    assert(guest_memory.read(actual + 0x2000, &byte, 1));
+    assert(!guest_memory.write(actual + 0x2000, &byte, 1));
+    assert(!guest_memory.fetch(actual + 0x2000, &byte, 1));
+    assert(guest_memory.read(actual + 0x3048, &byte, 1));
+    assert(guest_memory.write(actual + 0x3070, &byte, 1));
+    assert(!guest_memory.fetch(actual + 0x3070, &byte, 1));
+
     // The resolver's function address is written to the IAT.
     assert(loaded.image.memory[0x3048] == 0x78);
     assert(loaded.image.memory[0x3049] == 0x56);
     assert(loaded.image.memory[0x304a] == 0x34);
     assert(loaded.image.memory[0x304b] == 0x12);
+
+    auto writable_executable_file = file;
+    const std::size_t section_table = 0x98 + 240;
+    put32(writable_executable_file, section_table + 36, 0xe0000020U);
+    aie::engine::GuestMemory rejected_memory(0x10000U);
+    const auto rejected_image = aie::engine::map_pe_image_to_guest_memory(
+        writable_executable_file, rejected_memory, actual,
+        [](const std::string&, const aie::engine::ImportedSymbol&)
+            -> std::optional<std::uint64_t> { return 0x7fff12345678ULL; });
+    assert(!rejected_image.ok);
+    assert(rejected_memory.mapped_bytes() == 0);
+
+    aie::engine::GuestMemory unaligned_memory(0x10000U);
+    const auto unaligned_image = aie::engine::map_pe_image_to_guest_memory(
+        file, unaligned_memory, actual + 1U,
+        [](const std::string&, const aie::engine::ImportedSymbol&)
+            -> std::optional<std::uint64_t> { return 0x7fff12345678ULL; });
+    assert(!unaligned_image.ok);
+    assert(unaligned_memory.mapped_bytes() == 0);
 
     const auto no_rebase = aie::engine::map_pe_image(file, preferred,
         [](const std::string&, const aie::engine::ImportedSymbol&)

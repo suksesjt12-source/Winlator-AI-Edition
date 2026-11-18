@@ -16,8 +16,8 @@ enum GuestMemoryPermission : std::uint8_t {
     GuestMemoryExecute = 1U << 2
 };
 
-// A bounded, page-aligned guest virtual-memory map. This is an engine-owned
-// byte store for tests and early execution work, not the Android process map.
+// Engine-owned, bounded guest virtual memory. Permissions are tracked per
+// 4 KiB page; this is not an Android process map or a Windows VM subsystem.
 class GuestMemory {
 public:
     explicit GuestMemory(std::size_t maximum_mapped_bytes = 64U * 1024U * 1024U);
@@ -26,6 +26,7 @@ public:
              std::string* error = nullptr);
     bool unmap(std::uint64_t base, std::size_t size,
                std::string* error = nullptr);
+    // Protects a page-aligned subrange of one existing mapping.
     bool protect(std::uint64_t base, std::size_t size, std::uint8_t permissions,
                  std::string* error = nullptr);
 
@@ -40,12 +41,14 @@ private:
     struct Region {
         std::uint64_t base{};
         std::size_t size{};
-        std::uint8_t permissions{};
+        std::vector<std::uint8_t> page_permissions;
         std::vector<std::uint8_t> bytes;
     };
 
     Region* find_region(std::uint64_t address, std::size_t size);
     const Region* find_region(std::uint64_t address, std::size_t size) const;
+    bool has_permission(const Region& region, std::uint64_t address,
+                        std::size_t size, std::uint8_t permission) const;
 
     std::size_t maximum_mapped_bytes_;
     std::vector<Region> regions_;

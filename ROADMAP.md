@@ -24,6 +24,10 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [x] Map PE headers and sections into a bounded virtual byte array
 - [x] Select load base and apply PE32 HIGHLOW / PE32+ DIR64 relocations
 - [x] Parse import descriptors and resolve entries through a caller-supplied resolver callback
+- [x] Map relocated PE headers/sections into page-protected GuestMemory
+- [x] Derive per-page READ/WRITE/EXECUTE permissions from PE section characteristics
+- [x] Reject PE layouts that produce writable+executable pages
+- [x] Fetch a test PE entry section through execute permissions and run the limited x86-64 subset
 - [ ] Handle TLS and define exception/unwind metadata strategy
 - [x] Add malformed-image, relocation and import-resolution tests
 
@@ -48,7 +52,9 @@ This roadmap separates the existing upstream-based Android app from the new inde
 
 ### Milestone 4: Windows ABI and system services
 - [ ] Process and thread lifecycle
-- [x] Initial bounded guest virtual-memory map and permission enforcement
+- [x] Initial bounded guest virtual-memory map and per-page permission enforcement
+- [x] Map a PE image into GuestMemory with page-level section protection
+- [ ] Full Windows process address space, reservation/commit APIs, guard pages and synchronization primitives
 - [ ] Full Windows process virtual memory, allocation APIs and synchronization primitives
 - [ ] File and directory APIs with Android storage-grant boundaries
 - [ ] Dynamic module loading and core runtime libraries

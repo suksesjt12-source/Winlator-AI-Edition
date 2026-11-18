@@ -38,6 +38,7 @@ bool GuestMemory::map(std::uint64_t base, std::size_t size,
         set_error(error, "Guest mapping contains unknown permission bits.");
         return false;
     }
+
     const std::size_t currently_mapped = mapped_bytes();
     if (size > maximum_mapped_bytes_ ||
         currently_mapped > maximum_mapped_bytes_ - size) {
@@ -58,8 +59,9 @@ bool GuestMemory::map(std::uint64_t base, std::size_t size,
     Region region;
     region.base = base;
     region.size = size;
-    region.permissions = permissions;
     try {
+        region.page_permissions.assign(
+            size / static_cast<std::size_t>(GUEST_PAGE_SIZE), permissions);
         region.bytes.assign(size, 0);
         regions_.push_back(std::move(region));
     } catch (const std::bad_alloc&) {
@@ -90,26 +92,49 @@ bool GuestMemory::unmap(std::uint64_t base, std::size_t size,
 
 bool GuestMemory::protect(std::uint64_t base, std::size_t size,
                           std::uint8_t permissions, std::string* error) {
+    if ((base % GUEST_PAGE_SIZE) != 0 ||
+        (size % GUEST_PAGE_SIZE) != 0 || !range_fits(base, size)) {
+        set_error(error, "Guest protection requires a non-empty page-aligned range.");
+        return false;
+    }
     if ((permissions & ~KNOWN_PERMISSIONS) != 0) {
         set_error(error, "Guest protection contains unknown permission bits.");
         return false;
     }
-    const auto found = std::find_if(regions_.begin(), regions_.end(),
-        [base, size](const Region& region) {
-            return region.base == base && region.size == size;
-        });
-    if (found == regions_.end()) {
-        set_error(error, "Protection requires an exact existing guest region.");
+
+    Region* region = find_region(base, size);
+    if (region == nullptr) {
+        set_error(error, "Protection range is not contained in one existing guest mapping.");
         return false;
     }
-    found->permissions = permissions;
+
+    const std::size_t first_page =
+        static_cast<std::size_t>((base - region->base) / GUEST_PAGE_SIZE);
+    const std::size_t page_count =
+        size / static_cast<std::size_t>(GUEST_PAGE_SIZE);
+    if (first_page > region->page_permissions.size() ||
+        page_count > region->page_permissions.size() - first_page) {
+        set_error(error, "Guest protection range is outside the mapping.");
+        return false;
+    }
+
+    std::fill(region->page_permissions.begin() + first_page,
+              region->page_permissions.begin() + first_page + page_count,
+              permissions);
     return true;
 }
 
 GuestMemory::Region* GuestMemory::find_region(std::uint64_t address,
                                                std::size_t size) {
-    return const_cast<Region*>(
-        static_cast<const GuestMemory*>(this)->find_region(address, size));
+    if (size == 0 || size > std::numeric_limits<std::uint64_t>::max() - address)
+        return nullptr;
+    const std::uint64_t end = address + static_cast<std::uint64_t>(size);
+    for (auto& region : regions_) {
+        const std::uint64_t region_end =
+            region.base + static_cast<std::uint64_t>(region.size);
+        if (address >= region.base && end <= region_end) return &region;
+    }
+    return nullptr;
 }
 
 const GuestMemory::Region* GuestMemory::find_region(
@@ -125,24 +150,40 @@ const GuestMemory::Region* GuestMemory::find_region(
     return nullptr;
 }
 
+bool GuestMemory::has_permission(const Region& region, std::uint64_t address,
+                                 std::size_t size,
+                                 std::uint8_t permission) const {
+    if (size == 0) return false;
+    const std::size_t first_byte =
+        static_cast<std::size_t>(address - region.base);
+    const std::size_t last_byte = first_byte + size - 1U;
+    const std::size_t first_page =
+        first_byte / static_cast<std::size_t>(GUEST_PAGE_SIZE);
+    const std::size_t last_page =
+        last_byte / static_cast<std::size_t>(GUEST_PAGE_SIZE);
+    for (std::size_t page = first_page; page <= last_page; ++page) {
+        if ((region.page_permissions[page] & permission) == 0) return false;
+    }
+    return true;
+}
+
 bool GuestMemory::read(std::uint64_t address, void* destination,
                        std::size_t size) const {
     if (destination == nullptr || size == 0) return false;
     const Region* region = find_region(address, size);
-    if (region == nullptr || (region->permissions & GuestMemoryRead) == 0)
-        return false;
+    if (region == nullptr ||
+        !has_permission(*region, address, size, GuestMemoryRead)) return false;
     const std::size_t offset = static_cast<std::size_t>(address - region->base);
     std::memcpy(destination, region->bytes.data() + offset, size);
     return true;
 }
 
-
 bool GuestMemory::fetch(std::uint64_t address, void* destination,
                         std::size_t size) const {
     if (destination == nullptr || size == 0) return false;
     const Region* region = find_region(address, size);
-    if (region == nullptr || (region->permissions & GuestMemoryExecute) == 0)
-        return false;
+    if (region == nullptr ||
+        !has_permission(*region, address, size, GuestMemoryExecute)) return false;
     const std::size_t offset = static_cast<std::size_t>(address - region->base);
     std::memcpy(destination, region->bytes.data() + offset, size);
     return true;
@@ -152,8 +193,8 @@ bool GuestMemory::write(std::uint64_t address, const void* source,
                         std::size_t size) {
     if (source == nullptr || size == 0) return false;
     Region* region = find_region(address, size);
-    if (region == nullptr || (region->permissions & GuestMemoryWrite) == 0)
-        return false;
+    if (region == nullptr ||
+        !has_permission(*region, address, size, GuestMemoryWrite)) return false;
     const std::size_t offset = static_cast<std::size_t>(address - region->base);
     std::memcpy(region->bytes.data() + offset, source, size);
     return true;

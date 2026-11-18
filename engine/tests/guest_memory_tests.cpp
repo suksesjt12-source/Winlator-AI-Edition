@@ -65,6 +65,24 @@ int main() {
     assert(memory.unmap(0x20000U, static_cast<std::size_t>(GUEST_PAGE_SIZE), &error));
     assert(memory.mapped_bytes() == 0);
 
+    // Per-page permissions can differ inside one contiguous mapping.
+    GuestMemory paged_memory(2U * static_cast<std::size_t>(GUEST_PAGE_SIZE));
+    assert(paged_memory.map(0x30000U, 2U * static_cast<std::size_t>(GUEST_PAGE_SIZE),
+                            GuestMemoryRead | GuestMemoryWrite, &error));
+    assert(paged_memory.protect(
+        0x31000U, static_cast<std::size_t>(GUEST_PAGE_SIZE),
+        GuestMemoryRead, &error));
+    const std::uint8_t marker = 0x5a;
+    assert(paged_memory.write(0x30000U, &marker, 1));
+    assert(!paged_memory.write(0x31000U, &marker, 1));
+    assert(paged_memory.read(0x31000U, &instruction, 1));
+    assert(paged_memory.protect(
+        0x31000U, static_cast<std::size_t>(GUEST_PAGE_SIZE),
+        GuestMemoryExecute, &error));
+    assert(paged_memory.fetch(0x31000U, &instruction, 1));
+    assert(!paged_memory.read(0x31000U, &instruction, 1));
+    assert(!paged_memory.write(0x31000U, &marker, 1));
+
     std::cout << "guest memory tests passed\n";
     return 0;
 }

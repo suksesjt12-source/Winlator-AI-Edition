@@ -163,12 +163,7 @@ def main() -> int:
         "FileProvider authority usage",
     )
 
-    replace_once(
-        cpp_root / "CMakeLists.txt",
-        "add_subdirectory(gladiorenderer)\n",
-        "add_subdirectory(gladiorenderer)\n\nadd_subdirectory(aie_engine)\n",
-        "AI Edition native execution engine CMake target",
-    )
+    ensure_cmake_subdirectory(cpp_root / "CMakeLists.txt", "aie_engine")
     keep_rule = "-keep class com.winlator.NativeExecutionEngine { *; }"
     proguard_content = proguard_rules.read_text(encoding="utf-8")
     if keep_rule not in proguard_content:

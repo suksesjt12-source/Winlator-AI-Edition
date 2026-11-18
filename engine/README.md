@@ -5,14 +5,14 @@ This is a separate C++17 execution-engine foundation, built for host tests and A
 Current implemented layers:
 - Bounds-checked PE32 / PE32+ metadata inspection for supported x86 and x86-64 images.
 - Bounded PE image mapping, PE32 HIGHLOW and PE32+ DIR64 relocation handling, and import resolution through an explicit caller-provided callback.
-- A deliberately small x86-64 interpreter subset: NOP, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE, register/immediate PUSH, register POP, near relative CALL, and nested RET.
+- A deliberately small x86-64 interpreter subset: NOP/RET, MOV immediate/register/memory, LEA, C7 immediate stores, register/memory ADD/SUB/XOR/CMP/TEST, accumulator immediate arithmetic, short branches, register/immediate PUSH, register POP, near relative CALL and nested RET.
 - A 4 KiB bounded interpreter-local stack with checked PUSH/POP/CALL/RET accesses.
 - A bounded guest virtual-memory map with per-4 KiB-page read/write/execute permissions, protect/unmap operations and a configurable total allocation limit. Instruction fetch checks execute permission separately from data reads.
 - PE Loader integration that copies relocated headers and sections into GuestMemory, applies section-derived page protections, leaves gaps inaccessible and rejects writable+executable pages.
 - A limited PE entry runner that fetches an executable section through GuestMemory and runs only the currently implemented x86-64 instruction subset.
-- Initial 32/64-bit MOV loads and stores for register-indirect, displacement and SIB effective-address forms; unmapped or disallowed access returns an explicit memory fault.
+- Initial 32/64-bit MOV loads/stores and register/memory ADD/SUB/XOR/CMP/TEST for register-indirect, displacement and SIB effective-address forms, plus LEA and C7 immediate stores; unmapped or disallowed access returns an explicit memory fault.
 - CMake tests for parsing, loading, relocations, imports, supported instructions, branches, stack operations, local function calls and guest-memory protections.
-- A fixed built-in x86-64 smoke-test program, exposed to Android through JNI; it verifies register results and stack restoration without executing user-provided PE code.
+- A fixed built-in x86-64 smoke-test program, exposed to Android through JNI; it verifies register results, guest-memory reads/writes and arithmetic, and stack restoration without executing user-provided PE code.
 
 Important limitations:
 - This is not a general x86-64 CPU emulator. Most instruction families, RIP-relative memory operands, floating-point/SIMD, privilege behavior, interrupts and precise exception semantics are not implemented.

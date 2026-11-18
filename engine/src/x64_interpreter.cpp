@@ -304,24 +304,109 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
         }
 
 
-        if (opcode == 0x89 || opcode == 0x8b ||
-            opcode == 0x31 || opcode == 0x33) {
+        if (opcode == 0x8d) { // LEA reg, memory
             if (cursor >= code_size)
                 return stop(state, X64StopReason::TruncatedInstruction, executed,
-                            "Register instruction is missing its ModRM byte.");
+                            "LEA is missing its ModRM byte.");
+            const std::uint8_t modrm = code[cursor++];
+            if ((modrm >> 6) == 3)
+                return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                            "LEA requires a memory addressing form.");
+            const std::size_t reg =
+                ((modrm >> 3) & 7U) + ((rex & 0x04U) ? 8U : 0U);
+            std::uint64_t address = 0;
+            const auto address_result = decode_memory_address(
+                code, code_size, cursor, modrm, rex, state, address);
+            if (address_result == AddressDecodeResult::Truncated)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "LEA address is truncated.");
+            if (address_result != AddressDecodeResult::Success)
+                return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                            "LEA uses an unsupported addressing mode.");
+            const std::uint64_t mask = (rex & 0x08U)
+                ? std::numeric_limits<std::uint64_t>::max() : 0xffffffffULL;
+            state.registers[reg] = address & mask;
+            state.rip = cursor;
+            ++executed;
+            continue;
+        }
+
+        if (opcode == 0xc7) { // MOV r/m32 or r/m64, imm32
+            if (cursor >= code_size)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "MOV immediate is missing its ModRM byte.");
+            const std::uint8_t modrm = code[cursor++];
+            if (((modrm >> 3) & 7U) != 0 || (rex & 0x04U) != 0)
+                return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                            "Only the C7 /0 MOV immediate form is implemented.");
+            if ((modrm >> 6) != 3 && guest_memory == nullptr)
+                return stop(state, X64StopReason::MemoryFault, executed,
+                            "MOV immediate requires a guest-memory context.");
+            std::uint64_t address = 0;
+            if ((modrm >> 6) != 3) {
+                const auto address_result = decode_memory_address(
+                    code, code_size, cursor, modrm, rex, state, address);
+                if (address_result == AddressDecodeResult::Truncated)
+                    return stop(state, X64StopReason::TruncatedInstruction, executed,
+                                "MOV immediate address is truncated.");
+                if (address_result != AddressDecodeResult::Success)
+                    return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                                "MOV immediate uses an unsupported addressing mode.");
+            }
+            if (cursor > code_size || 4U > code_size - cursor)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "MOV immediate data is truncated.");
+            const bool wide = (rex & 0x08U) != 0;
+            const std::uint32_t raw_immediate = read32(code + cursor);
+            const std::uint64_t value = wide
+                ? static_cast<std::uint64_t>(static_cast<std::int64_t>(
+                      static_cast<std::int32_t>(raw_immediate)))
+                : raw_immediate;
+            const std::size_t operand_size = wide ? 8U : 4U;
+            if ((modrm >> 6) == 3) {
+                const std::size_t rm =
+                    (modrm & 7U) + ((rex & 0x01U) ? 8U : 0U);
+                state.registers[rm] = value;
+            } else {
+                std::uint8_t bytes[8]{};
+                for (std::size_t i = 0; i < operand_size; ++i)
+                    bytes[i] = static_cast<std::uint8_t>(value >> (i * 8U));
+                if (!guest_memory->write(address, bytes, operand_size))
+                    return stop(state, X64StopReason::MemoryFault, executed,
+                                "MOV immediate store targeted unmapped or non-writable guest memory.");
+            }
+            state.rip = cursor + 4U;
+            ++executed;
+            continue;
+        }
+
+        if (opcode == 0x89 || opcode == 0x8b ||
+            opcode == 0x01 || opcode == 0x03 ||
+            opcode == 0x29 || opcode == 0x2b ||
+            opcode == 0x31 || opcode == 0x33 ||
+            opcode == 0x39 || opcode == 0x3b ||
+            opcode == 0x85) {
+            if (cursor >= code_size)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "Register/memory instruction is missing its ModRM byte.");
             const std::uint8_t modrm = code[cursor++];
             const std::uint8_t mod = modrm >> 6;
-            const std::size_t reg = ((modrm >> 3) & 7U) + ((rex & 0x04U) ? 8U : 0U);
+            const std::size_t reg =
+                ((modrm >> 3) & 7U) + ((rex & 0x04U) ? 8U : 0U);
             const bool wide = (rex & 0x08U) != 0;
             const unsigned width = wide ? 64U : 32U;
             const std::size_t operand_size = wide ? 8U : 4U;
             const std::uint64_t mask = wide
                 ? std::numeric_limits<std::uint64_t>::max() : 0xffffffffULL;
 
+            const bool is_mov = opcode == 0x89 || opcode == 0x8b;
+            const bool is_add = opcode == 0x01 || opcode == 0x03;
+            const bool is_sub = opcode == 0x29 || opcode == 0x2b;
+            const bool is_xor = opcode == 0x31 || opcode == 0x33;
+            const bool is_cmp = opcode == 0x39 || opcode == 0x3b;
+            const bool is_test = opcode == 0x85;
+
             if (mod != 3) {
-                if (opcode != 0x89 && opcode != 0x8b)
-                    return stop(state, X64StopReason::UnsupportedInstruction, executed,
-                                "Only MOV supports guest-memory operands in this interpreter build.");
                 if (guest_memory == nullptr)
                     return stop(state, X64StopReason::MemoryFault, executed,
                                 "Instruction requires a guest-memory context.");
@@ -330,10 +415,10 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                     code, code_size, cursor, modrm, rex, state, address);
                 if (address_result == AddressDecodeResult::Truncated)
                     return stop(state, X64StopReason::TruncatedInstruction, executed,
-                                "MOV memory address is truncated.");
+                                "Memory operand address is truncated.");
                 if (address_result != AddressDecodeResult::Success)
                     return stop(state, X64StopReason::UnsupportedInstruction, executed,
-                                "MOV uses an unsupported guest-memory addressing mode.");
+                                "Instruction uses an unsupported memory addressing mode.");
 
                 if (opcode == 0x89) {
                     std::uint8_t bytes[8]{};
@@ -343,7 +428,7 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                     if (!guest_memory->write(address, bytes, operand_size))
                         return stop(state, X64StopReason::MemoryFault, executed,
                                     "MOV store targeted unmapped or non-writable guest memory.");
-                } else {
+                } else if (opcode == 0x8b) {
                     std::uint8_t bytes[8]{};
                     if (!guest_memory->read(address, bytes, operand_size))
                         return stop(state, X64StopReason::MemoryFault, executed,
@@ -352,6 +437,45 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                     for (std::size_t i = 0; i < operand_size; ++i)
                         value |= static_cast<std::uint64_t>(bytes[i]) << (i * 8U);
                     state.registers[reg] = value;
+                } else {
+                    std::uint8_t bytes[8]{};
+                    if (!guest_memory->read(address, bytes, operand_size))
+                        return stop(state, X64StopReason::MemoryFault, executed,
+                                    "Arithmetic operand targeted unmapped or non-readable guest memory.");
+                    std::uint64_t memory_value = 0;
+                    for (std::size_t i = 0; i < operand_size; ++i)
+                        memory_value |= static_cast<std::uint64_t>(bytes[i]) << (i * 8U);
+
+                    const std::uint64_t register_value = state.registers[reg] & mask;
+                    const bool memory_is_destination =
+                        opcode == 0x01 || opcode == 0x29 ||
+                        opcode == 0x31 || opcode == 0x39 || is_test;
+                    const std::uint64_t lhs = memory_is_destination
+                        ? memory_value : register_value;
+                    const std::uint64_t rhs = memory_is_destination
+                        ? register_value : memory_value;
+                    std::uint64_t value = lhs;
+                    if (is_add) value = (lhs + rhs) & mask;
+                    else if (is_sub || is_cmp) value = (lhs - rhs) & mask;
+                    else if (is_xor || is_test) value = (lhs ^ rhs) & mask;
+
+                    if (is_add) set_arithmetic_flags(state, value, lhs, rhs, width, false);
+                    else if (is_sub || is_cmp)
+                        set_arithmetic_flags(state, value, lhs, rhs, width, true);
+                    else if (is_xor || is_test) set_logic_flags(state, value, width);
+
+                    if (is_add || is_sub || is_xor) {
+                        if (memory_is_destination) {
+                            std::uint8_t out[8]{};
+                            for (std::size_t i = 0; i < operand_size; ++i)
+                                out[i] = static_cast<std::uint8_t>(value >> (i * 8U));
+                            if (!guest_memory->write(address, out, operand_size))
+                                return stop(state, X64StopReason::MemoryFault, executed,
+                                            "Arithmetic store targeted non-writable guest memory.");
+                        } else {
+                            state.registers[reg] = value;
+                        }
+                    }
                 }
                 state.rip = cursor;
                 ++executed;
@@ -360,24 +484,37 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
 
             const std::size_t rm =
                 (modrm & 7U) + ((rex & 0x01U) ? 8U : 0U);
-            const bool writes_rm = opcode == 0x89 || opcode == 0x31;
-            const std::size_t destination = writes_rm ? rm : reg;
-            const std::uint64_t left = state.registers[destination] & mask;
-            const std::uint64_t right =
-                state.registers[writes_rm ? reg : rm] & mask;
-
-            if (opcode == 0x89 || opcode == 0x8b) {
-                state.registers[destination] = right;
+            if (is_mov) {
+                const std::size_t destination = opcode == 0x89 ? rm : reg;
+                const std::size_t source = opcode == 0x89 ? reg : rm;
+                state.registers[destination] = state.registers[source] & mask;
             } else {
-                const std::uint64_t value = (left ^ right) & mask;
-                state.registers[destination] = value;
-                set_logic_flags(state, value, width);
+                const bool rm_is_destination =
+                    opcode == 0x01 || opcode == 0x29 ||
+                    opcode == 0x31 || opcode == 0x39 || is_test;
+                const std::uint64_t lhs =
+                    state.registers[rm_is_destination ? rm : reg] & mask;
+                const std::uint64_t rhs =
+                    state.registers[rm_is_destination ? reg : rm] & mask;
+                std::uint64_t value = lhs;
+                if (is_add) value = (lhs + rhs) & mask;
+                else if (is_sub || is_cmp) value = (lhs - rhs) & mask;
+                else if (is_xor || is_test) value = (lhs ^ rhs) & mask;
+
+                if (is_add) set_arithmetic_flags(state, value, lhs, rhs, width, false);
+                else if (is_sub || is_cmp)
+                    set_arithmetic_flags(state, value, lhs, rhs, width, true);
+                else if (is_xor || is_test) set_logic_flags(state, value, width);
+
+                if (is_add || is_sub || is_xor) {
+                    const std::size_t destination = rm_is_destination ? rm : reg;
+                    state.registers[destination] = value;
+                }
             }
             state.rip = cursor;
             ++executed;
             continue;
         }
-
         if (opcode == 0x3d) { // CMP accumulator, imm32
             if (cursor > code_size || 4U > code_size - cursor)
                 return stop(state, X64StopReason::TruncatedInstruction, executed,
@@ -460,6 +597,10 @@ X64RunResult run_x64_self_test() {
         0x48, 0x89, 0xc8,
         0x48, 0x89, 0x43, 0x08,
         0x48, 0x8b, 0x4b, 0x08,
+        0x48, 0x89, 0x4b, 0x10,
+        0x48, 0x01, 0x4b, 0x10,
+        0x48, 0x8b, 0x53, 0x10,
+        0x48, 0x2b, 0xd1,
         0xe8, 0x07, 0, 0, 0,
         0x48, 0x05, 0x02, 0, 0, 0,
         0xc3,

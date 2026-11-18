@@ -13,17 +13,17 @@ The current Android application is based on the upstream Winlator runtime. The c
 - Entry-point, image-base and section-table inspection.
 - PE header/section mapping, PE32 HIGHLOW and PE32+ DIR64 relocations.
 - Import descriptor/thunk parsing through an explicit caller-supplied resolver.
-- A deliberately small x86-64 interpreter subset (NOP, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE, register/immediate PUSH, register POP, near relative CALL and nested RET).
+- A deliberately small x86-64 interpreter subset with NOP/RET, MOV immediate/register/memory, LEA, C7 immediate stores, register/memory ADD/SUB/XOR/CMP/TEST, accumulator immediate arithmetic, short branches, PUSH/POP and relative CALL.
 - A 4 KiB bounded interpreter-local stack with checked PUSH/POP/CALL/RET accesses.
 - A bounded guest virtual-memory map with independent read/write/execute permissions per 4 KiB page, protection changes, unmapping and a configurable allocation cap.
 - PE Loader integration that maps relocated headers and sections into GuestMemory, derives page permissions from PE section flags, keeps gaps inaccessible and rejects writable+executable pages.
 - A limited PE entry-point test runner that fetches an executable section through GuestMemory and executes only the implemented x86-64 subset.
-- Initial x86-64 MOV load/store support using base-register and SIB effective addresses, with explicit faults for unmapped or protected guest memory. Instruction fetch permission is separately exposed and tested.
+- Initial x86-64 memory operands using base-register and SIB effective addresses, including MOV/LEA and arithmetic/logical operations, with explicit faults for unmapped or protected guest memory. Instruction fetch permission is checked separately.
 - JNI shared library integrated into the upstream-based APK. The AI Assistant can inspect selected .exe metadata and run a fixed, built-in x86-64 interpreter smoke test (registers, stack, arithmetic and local CALL/RET).
 - Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
 - An Android NDK cross-build targeting `arm64-v8a`.
 
-**Important:** this is not yet a working standalone Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no general x86/x64-to-ARM64 execution engine, Windows API layer, or independent graphics/audio/input compatibility. The JNI integration can run one fixed, built-in interpreter test program that exercises bounded guest-memory load/store operations. The PE-to-GuestMemory mapping and limited PE-entry test runner currently have native unit-test coverage; the Android UI still does not launch a selected .exe or run Windows applications.
+**Important:** this is not yet a working standalone Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no general x86/x64-to-ARM64 execution engine, Windows API layer, or independent graphics/audio/input compatibility. The JNI integration can run one fixed, built-in interpreter test program that exercises bounded guest-memory load/store, ADD/SUB arithmetic, stack operations and local CALL/RET. The PE-to-GuestMemory mapping and limited PE-entry test runner currently have native unit-test coverage; the Android UI still does not launch a selected .exe or run Windows applications.
 
 ## Android application today
 

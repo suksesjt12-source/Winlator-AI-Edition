@@ -42,11 +42,11 @@ struct X64RunResult {
 };
 
 // Executes a deliberately small, testable x86-64 subset from a byte buffer.
-// Supports NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX
-// immediate, short JMP/JE/JNE, register/immediate PUSH and register POP,
-// near relative CALL, and MOV to/from bounded guest memory using base-register
-// or SIB addressing. CALL/RET use the bounded sandbox stack above. RIP-relative
-// addressing, most instructions, Windows APIs and a full ABI are unsupported.
+// Supports NOP, RET, MOV immediate/register/memory, LEA, C7 immediate store,
+// register/memory ADD/SUB/XOR/CMP/TEST, accumulator immediate arithmetic,
+// short JMP/JE/JNE, register/immediate PUSH and register POP, near relative
+// CALL, and base-register/SIB memory addressing. This remains a small subset:
+// RIP-relative addressing, most instructions, Windows APIs and a full ABI are unsupported.
 X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                             X64CpuState initial_state = {},
                             std::size_t maximum_steps = 100000,

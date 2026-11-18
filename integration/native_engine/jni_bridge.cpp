@@ -80,11 +80,13 @@ Java_com_winlator_NativeExecutionEngine_nativeRunInterpreterSelfTest(
 
     const bool passed = result.state.registers[0] == 45 &&
                         result.state.registers[1] == 40 &&
+                        result.state.registers[2] == 40 &&
                         result.state.registers[4] == aie::engine::X64_STACK_SIZE;
     if (!passed) {
         std::ostringstream failure;
         failure << "FAIL | RAX=" << result.state.registers[0]
                 << " | RCX=" << result.state.registers[1]
+                << " | RDX=" << result.state.registers[2]
                 << " | RSP=" << result.state.registers[4];
         return to_java_string(env, failure.str());
     }
@@ -93,7 +95,8 @@ Java_com_winlator_NativeExecutionEngine_nativeRunInterpreterSelfTest(
     output << "PASS | x86-64 interpreter executed its built-in test program"
            << " | RAX=" << result.state.registers[0]
            << " | RCX=" << result.state.registers[1]
-           << " | guest memory read/write=pass"
+           << " | RDX=" << result.state.registers[2]
+           << " | guest memory read/write + arithmetic=pass"
            << " | stack restored=" << (result.state.registers[4] == aie::engine::X64_STACK_SIZE ? "yes" : "no")
            << " | instructions=" << result.instructions_executed;
     return to_java_string(env, output.str());

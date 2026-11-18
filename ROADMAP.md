@@ -41,6 +41,9 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [x] Add initial mapped-entry byte-sequence test
 - [x] Add bounded guest virtual-memory regions with page alignment, permissions, protection changes and allocation limits
 - [x] Add MOV load/store for base-register and SIB effective-address forms
+- [x] Add register/memory ADD, SUB, XOR, CMP and TEST operations
+- [x] Add LEA effective-address calculation and C7 immediate stores
+- [x] Exercise arithmetic memory operations in the JNI smoke-test program
 - [x] Add guest-memory fault tests for unmapped and non-writable ranges
 - [x] Separate execute permission checks from data-read permission checks
 - [ ] Expand instruction decoding, RIP-relative memory operands, stack frames and exception behavior

@@ -132,6 +132,34 @@ int main() {
     assert(memory_result.returned());
     assert(memory_result.state.registers[1] == 0x1122334455667788ULL);
 
+    // ADD/SUB/XOR/CMP/TEST support register and guest-memory operands.
+    const std::vector<std::uint8_t> arithmetic_memory_ops{
+        0x48, 0xbb, 0x00, 0x00, 0x04, 0x00, 0, 0, 0, 0, // mov rbx,0x40000
+        0x48, 0xb8, 0x0a, 0, 0, 0, 0, 0, 0, 0,         // mov rax,10
+        0x48, 0x89, 0x43, 0x08,                       // mov [rbx+8],rax
+        0x48, 0xb9, 0x05, 0, 0, 0, 0, 0, 0, 0,       // mov rcx,5
+        0x48, 0x01, 0x4b, 0x08,                       // add [rbx+8],rcx
+        0x48, 0x8b, 0x53, 0x08,                       // mov rdx,[rbx+8]
+        0x48, 0x2b, 0xd1,                             // sub rdx,rcx
+        0x48, 0x33, 0xd0,                             // xor rdx,rax
+        0x48, 0x85, 0xc2,                             // test rdx,rax
+        0x48, 0x8d, 0x4b, 0x10,                       // lea rcx,[rbx+0x10]
+        0xc7, 0x43, 0x20, 0x78, 0x56, 0x34, 0x12,     // mov dword [rbx+0x20],0x12345678
+        0x8b, 0x43, 0x20,                             // mov eax,[rbx+0x20]
+        0xc3
+    };
+    const auto arithmetic_result = aie::engine::run_x64_subset(
+        arithmetic_memory_ops.data(), arithmetic_memory_ops.size(),
+        memory_state, 1000, &guest_memory);
+    assert(arithmetic_result.returned());
+    assert(arithmetic_result.state.registers[0] == 0x12345678U);
+    assert(arithmetic_result.state.registers[1] == 0x40010U);
+    assert(arithmetic_result.state.registers[2] == 0);
+    assert((arithmetic_result.state.rflags & (1ULL << 6)) != 0); // ZF from TEST.
+    std::uint64_t stored_sum = 0;
+    assert(guest_memory.read(0x40008U, &stored_sum, sizeof(stored_sum)));
+    assert(stored_sum == 15U);
+
     // SIB addressing: [RBX + RCX*4 + 0x10].
     const std::vector<std::uint8_t> sib_ops{
         0x48, 0xb8, 0x2a, 0, 0, 0, 0, 0, 0, 0,
@@ -153,12 +181,23 @@ int main() {
     const auto memory_fault = aie::engine::run_x64_subset(
         faulting_store.data(), faulting_store.size(), memory_state, 1000, &guest_memory);
     assert(memory_fault.reason == aie::engine::X64StopReason::MemoryFault);
+    const std::vector<std::uint8_t> readonly_arithmetic{
+        0x48, 0xb9, 0x01, 0, 0, 0, 0, 0, 0, 0,
+        0x48, 0x01, 0x4b, 0x08,
+        0xc3
+    };
+    const auto arithmetic_fault = aie::engine::run_x64_subset(
+        readonly_arithmetic.data(), readonly_arithmetic.size(),
+        memory_state, 1000, &guest_memory);
+    assert(arithmetic_fault.reason == aie::engine::X64StopReason::MemoryFault);
+
 
     // The JNI smoke test includes a guest-memory store and load.
     const auto self_test = aie::engine::run_x64_self_test();
     assert(self_test.returned());
     assert(self_test.state.registers[0] == 45);
     assert(self_test.state.registers[1] == 40);
+    assert(self_test.state.registers[2] == 40);
     assert(self_test.state.registers[4] == aie::engine::X64_STACK_SIZE);
 
     // An invalid stack pointer must fail safely instead of indexing the array.

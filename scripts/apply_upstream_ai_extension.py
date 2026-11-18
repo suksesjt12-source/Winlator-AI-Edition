@@ -77,10 +77,24 @@ def main() -> int:
     manifest_xml = app / "app/src/main/AndroidManifest.xml"
     build_gradle = app / "app/build.gradle"
     file_utils = java_dir / "core/FileUtils.java"
+    proguard_rules = app / "app/proguard-rules.pro"
+    cpp_root = app / "app/src/main/cpp"
+    native_bridge_source = source_root / "NativeExecutionEngine.java"
+    native_cmake_source = source_root / "native_engine/CMakeLists.txt"
+    native_jni_source = source_root / "native_engine/jni_bridge.cpp"
+    engine_root = Path(__file__).resolve().parents[1] / "engine"
 
     required = [
-        assistant_source, launcher_source, main_activity, menu_xml, strings_xml,
-        manifest_xml, build_gradle, file_utils,
+        assistant_source, launcher_source, native_bridge_source,
+        native_cmake_source, native_jni_source, main_activity, menu_xml, strings_xml,
+        manifest_xml, build_gradle, file_utils, proguard_rules,
+        cpp_root / "CMakeLists.txt",
+        engine_root / "include/aie/pe_image.hpp",
+        engine_root / "include/aie/pe_loader.hpp",
+        engine_root / "include/aie/x64_interpreter.hpp",
+        engine_root / "src/pe_image.cpp",
+        engine_root / "src/pe_loader.cpp",
+        engine_root / "src/x64_interpreter.cpp",
         source_root / "assets/ai_cover.webp",
         source_root / "assets/ic_launcher.xml",
         source_root / "assets/ic_launcher_round.xml",
@@ -93,6 +107,23 @@ def main() -> int:
     java_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(assistant_source, java_dir / "AIAssistantActivity.java")
     shutil.copy2(launcher_source, java_dir / "LauncherActivity.java")
+    shutil.copy2(native_bridge_source, java_dir / "NativeExecutionEngine.java")
+
+    # Add the independent native core as a separate JNI shared library in the APK.
+    native_target = cpp_root / "aie_engine"
+    (native_target / "include/aie").mkdir(parents=True, exist_ok=True)
+    (native_target / "src").mkdir(parents=True, exist_ok=True)
+    for relative in [
+        "include/aie/pe_image.hpp",
+        "include/aie/pe_loader.hpp",
+        "include/aie/x64_interpreter.hpp",
+        "src/pe_image.cpp",
+        "src/pe_loader.cpp",
+        "src/x64_interpreter.cpp",
+    ]:
+        shutil.copy2(engine_root / relative, native_target / relative)
+    shutil.copy2(native_cmake_source, native_target / "CMakeLists.txt")
+    shutil.copy2(native_jni_source, native_target / "jni_bridge.cpp")
 
     drawable_dir = res_dir / "drawable-nodpi"
     icon_dir = res_dir / "mipmap-anydpi-v26"
@@ -123,6 +154,20 @@ def main() -> int:
         '"com.winlator.aiedition.FileProvider"',
         "FileProvider authority usage",
     )
+
+    replace_once(
+        cpp_root / "CMakeLists.txt",
+        "add_subdirectory(gladiorenderer)\n",
+        "add_subdirectory(gladiorenderer)\n\nadd_subdirectory(aie_engine)\n",
+        "AI Edition native execution engine CMake target",
+    )
+    keep_rule = "-keep class com.winlator.NativeExecutionEngine { *; }"
+    proguard_content = proguard_rules.read_text(encoding="utf-8")
+    if keep_rule not in proguard_content:
+        proguard_rules.write_text(
+            proguard_content.rstrip() + "\n\n" + keep_rule + "\n",
+            encoding="utf-8",
+        )
 
     # Keep the assistant reachable from the retained runtime navigation drawer.
     replace_once(

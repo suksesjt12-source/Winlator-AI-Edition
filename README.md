@@ -14,10 +14,11 @@ The existing Android application still uses the upstream Winlator runtime. In pa
 - PE header/section mapping, PE32 HIGHLOW and PE32+ DIR64 relocations.
 - Import descriptor/thunk parsing through an explicit caller-supplied resolver.
 - A deliberately small x86-64 interpreter subset (NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE).
+- JNI bridge packaged into the Android APK for native engine status and PE metadata inspection.
 - Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
 - An Android NDK cross-compile job targeting `arm64-v8a` that publishes the native static library as a CI artifact.
 
-**Important:** this is not yet a working Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no full x86/x64-to-ARM64 execution engine, Windows API layer, graphics/audio/input compatibility, or Android JNI integration.
+**Important:** this is not yet a working Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no full x86/x64-to-ARM64 execution engine, Windows API layer, or graphics/audio/input compatibility. JNI integration is limited to reporting native status and inspecting PE headers.
 
 ## Android application today
 

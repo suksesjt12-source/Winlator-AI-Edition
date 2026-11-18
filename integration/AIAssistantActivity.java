@@ -45,6 +45,7 @@ public class AIAssistantActivity extends Activity {
         addPanel(layout, "ANDROID", "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")");
         addPanel(layout, "CPU ABI", abi);
         addPanel(layout, "MEMORY", "Total RAM: " + totalMb + " MB\nAvailable now: " + availableMb + " MB");
+        addPanel(layout, "NATIVE ENGINE", NativeExecutionEngine.getStatus());
 
         String profile;
         String resolution;

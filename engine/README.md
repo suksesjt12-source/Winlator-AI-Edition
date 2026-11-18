@@ -12,7 +12,8 @@ This is the independent native-engine development track. It is separate from the
 - A small x86-64 interpreter subset: NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, and short JMP/JE/JNE.
 - A test that runs a tiny synthetic entry-point sequence from mapped PE section bytes.
 - Debug-mode CMake tests for valid, malformed, relocation, import, branch and interpreter cases.
-- A separate Android NDK cross-compile target for arm64-v8a; this compiles the static native core but does not yet package it into the APK.
+- An Android NDK build of the core for arm64-v8a.
+- A JNI shared library packaged into the Android APK, exposing native-engine status and PE metadata inspection to Java.
 
 ## Explicit limitations
 

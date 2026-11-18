@@ -29,11 +29,15 @@ This roadmap separates the existing upstream-based Android app from the new inde
 
 ### Milestone 3: x86/x86-64 execution on ARM64
 - [x] Define initial x86-64 GPR, RIP and RFLAGS state
-- [x] Implement a small interpreter subset: NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP accumulator immediate
+- [x] Implement initial interpreter subset: NOP, MOV immediate/register, XOR register, ADD/SUB/CMP accumulator immediate and short branches
+- [x] Add bounded 4 KiB interpreter-local stack with register/immediate PUSH and register POP
+- [x] Add near relative CALL and nested RET handling
+- [x] Add semantic tests for stack bounds and local function calls
 - [x] Add short JMP/JE/JNE branch handling and semantic tests
 - [x] Add initial mapped-entry byte-sequence test
-- [ ] Expand instruction decoding, memory operands, stack operations and exception behavior
-- [ ] Compile and integrate the native core into the Android app through JNI (cross-compile CI is being added)
+- [ ] Expand instruction decoding, memory operands, stack frames and exception behavior
+- [x] Compile and package the native core into the Android APK through a JNI shared library (metadata inspection only)
+- [ ] Invoke the x86-64 interpreter through a controlled native test interface
 - [ ] Add ARM64 JIT only after broad interpreter correctness is established
 - [ ] Add differential tests against a trusted reference implementation
 
@@ -53,8 +57,9 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [ ] Frame pacing, surface lifecycle and suspend/resume tests
 
 ### Milestone 6: Android integration
-- [ ] Build native engine for Android ARM64 using NDK
-- [ ] JNI boundary with explicit ownership and error reporting
+- [x] Build and package native engine sources for Android ARM64 using NDK
+- [x] JNI boundary for bounded PE metadata inspection
+- [ ] JNI execution interface with explicit memory ownership and error reporting
 - [ ] Sandboxed per-game process/session management
 - [ ] Connect AI Assistant to measured engine diagnostics
 - [ ] Keep the current upstream runtime optional during migration

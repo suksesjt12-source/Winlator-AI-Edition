@@ -13,7 +13,8 @@ The current Android application is based on the upstream Winlator runtime. The c
 - Entry-point, image-base and section-table inspection.
 - PE header/section mapping, PE32 HIGHLOW and PE32+ DIR64 relocations.
 - Import descriptor/thunk parsing through an explicit caller-supplied resolver.
-- A deliberately small x86-64 interpreter subset (NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE).
+- A deliberately small x86-64 interpreter subset (NOP, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE, register/immediate PUSH, register POP, near relative CALL and nested RET).
+- A 4 KiB bounded interpreter-local stack with checked PUSH/POP/CALL/RET accesses.
 - JNI shared library integrated into the upstream-based APK. The AI Assistant can inspect selected .exe files and display PE architecture, section count, entry RVA and image size.
 - Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
 - An Android NDK cross-build targeting `arm64-v8a`.

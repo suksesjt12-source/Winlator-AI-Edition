@@ -83,6 +83,25 @@ X64RunResult stop(X64CpuState state, X64StopReason reason,
     return result;
 }
 
+
+bool push64(X64CpuState& state, std::uint64_t value) {
+    std::uint64_t& rsp = state.registers[4];
+    if (rsp > X64_STACK_SIZE || rsp < 8U) return false;
+    rsp -= 8U;
+    for (unsigned i = 0; i < 8; ++i)
+        state.stack_memory[static_cast<std::size_t>(rsp) + i] =
+            static_cast<std::uint8_t>(value >> (i * 8U));
+    return true;
+}
+
+bool pop64(X64CpuState& state, std::uint64_t& value) {
+    std::uint64_t& rsp = state.registers[4];
+    if (rsp > X64_STACK_SIZE - 8U) return false;
+    value = read64(state.stack_memory.data() + rsp);
+    rsp += 8U;
+    return true;
+}
+
 } // namespace
 
 X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
@@ -91,7 +110,11 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
         return stop(state, X64StopReason::InvalidInstructionPointer, 0,
                     "Instruction pointer is outside the code buffer.");
 
+    if (state.registers[4] == 0)
+        state.registers[4] = X64_STACK_SIZE;
+
     std::size_t executed = 0;
+    std::size_t call_depth = 0;
     while (executed < maximum_steps) {
         if (state.rip >= code_size)
             return stop(state, X64StopReason::InvalidInstructionPointer, executed,
@@ -113,9 +136,80 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
             continue;
         }
         if (opcode == 0xc3) {
+            if (call_depth == 0)
+                return stop(state, X64StopReason::Returned, executed + 1U, "");
+            std::uint64_t return_address = 0;
+            if (!pop64(state, return_address))
+                return stop(state, X64StopReason::StackFault, executed,
+                            "RET could not read a return address from the sandbox stack.");
+            if (return_address >= code_size)
+                return stop(state, X64StopReason::InvalidInstructionPointer, executed,
+                            "RET target is outside the code buffer.");
+            --call_depth;
+            state.rip = return_address;
+            ++executed;
+            continue;
+        }
+
+        if (opcode >= 0x50 && opcode <= 0x57) { // PUSH r64
+            const std::size_t reg = (opcode - 0x50U) + ((rex & 0x01U) ? 8U : 0U);
+            const std::uint64_t value = state.registers[reg];
+            if (!push64(state, value))
+                return stop(state, X64StopReason::StackFault, executed,
+                            "PUSH exceeded the bounded sandbox stack.");
             state.rip = cursor;
             ++executed;
-            return stop(state, X64StopReason::Returned, executed, "");
+            continue;
+        }
+
+        if (opcode >= 0x58 && opcode <= 0x5f) { // POP r64
+            const std::size_t reg = (opcode - 0x58U) + ((rex & 0x01U) ? 8U : 0U);
+            std::uint64_t value = 0;
+            if (!pop64(state, value))
+                return stop(state, X64StopReason::StackFault, executed,
+                            "POP attempted to read beyond the bounded sandbox stack.");
+            state.registers[reg] = value;
+            state.rip = cursor;
+            ++executed;
+            continue;
+        }
+
+        if (opcode == 0x6a || opcode == 0x68) { // PUSH imm8 / imm32
+            const std::size_t immediate_size = opcode == 0x6a ? 1U : 4U;
+            if (cursor > code_size || immediate_size > code_size - cursor)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "PUSH immediate is truncated.");
+            const std::int64_t signed_value = opcode == 0x6a
+                ? static_cast<std::int8_t>(code[cursor])
+                : static_cast<std::int32_t>(read32(code + cursor));
+            if (!push64(state, static_cast<std::uint64_t>(signed_value)))
+                return stop(state, X64StopReason::StackFault, executed,
+                            "PUSH immediate exceeded the bounded sandbox stack.");
+            state.rip = cursor + immediate_size;
+            ++executed;
+            continue;
+        }
+
+        if (opcode == 0xe8 && rex == 0) { // CALL rel32
+            if (cursor > code_size || 4U > code_size - cursor)
+                return stop(state, X64StopReason::TruncatedInstruction, executed,
+                            "CALL displacement is truncated.");
+            const std::int32_t displacement =
+                static_cast<std::int32_t>(read32(code + cursor));
+            const std::size_t next = cursor + 4U;
+            const std::int64_t destination =
+                static_cast<std::int64_t>(next) + displacement;
+            if (destination < 0 ||
+                static_cast<std::uint64_t>(destination) >= code_size)
+                return stop(state, X64StopReason::InvalidInstructionPointer, executed,
+                            "CALL target is outside the code buffer.");
+            if (!push64(state, next))
+                return stop(state, X64StopReason::StackFault, executed,
+                            "CALL could not push a return address onto the sandbox stack.");
+            ++call_depth;
+            state.rip = static_cast<std::uint64_t>(destination);
+            ++executed;
+            continue;
         }
 
         if (opcode >= 0xb8 && opcode <= 0xbf) {

@@ -1,9 +1,9 @@
 # Development Roadmap
 
-This roadmap tracks the work required to turn the project into a tested Winlator-based Android application with additional AI assistance.
+This roadmap tracks the work required to turn the project into a tested Winlator-based Android application with a distinct launcher and additional AI assistance.
 
 ## Phase 1 — Android foundation
-- [x] Android application project and launcher screen
+- [x] Android application project and launcher prototype
 - [x] GitHub Actions debug APK build
 - [x] Device and memory information screen
 - [x] Local rule-based assistant
@@ -16,15 +16,16 @@ This roadmap tracks the work required to turn the project into a tested Winlator
 - [ ] Validate file-provider edge cases on real devices
 - [ ] Add editable game metadata and profile export/import
 
-## Phase 3 — Upstream Winlator integration
+## Phase 3 — Upstream Winlator integration and AI Edition launcher
 - [x] Use upstream Winlator Android project as the compatibility base in CI
 - [x] Preserve upstream source attribution and original Git submodule references
-- [x] Add the AI Assistant Activity, navigation entry and manifest registration
-- [x] Build the upstream-based ARM64 debug APK successfully in GitHub Actions
-- [x] Reuse upstream container, shortcut, file-manager and component-management screens
-- [ ] Install and launch the APK on physical ARM64 hardware
-- [ ] Verify Wine, Box64 and required system files install correctly on first run
-- [ ] Validate the component download flow, storage handling and recovery from failed downloads
+- [x] Add the offline AI Assistant Activity
+- [x] Replace the first-launch screen with an AI Edition dashboard
+- [x] Add custom launcher cover art and adaptive application icon
+- [x] Route dashboard actions to the upstream game shortcuts, container and settings flows
+- [x] Keep the upstream runtime available behind the new launcher
+- [ ] Build and install the redesigned APK on physical ARM64 hardware
+- [ ] Verify first-run permissions, system files and component installation
 
 ## Phase 4 — Runtime and executable validation
 - [x] Include upstream container creation and management implementation
@@ -51,11 +52,11 @@ This roadmap tracks the work required to turn the project into a tested Winlator
 
 ## Phase 7 — Verification and release
 - [x] Build and upload an upstream-based debug APK reproducibly in GitHub Actions
+- [x] Publish debug APK and SHA-256 checksum as prerelease assets
 - [ ] Run Android lint and targeted automated tests
 - [ ] Install and launch on physical ARM64 hardware
 - [ ] Verify container creation, component installation and a Windows test executable
 - [ ] Verify controls, audio, graphics, storage permissions, suspend/resume and thermal behaviour
-- [ ] Verify automated prerelease publishing of the debug APK and SHA-256 checksum
 - [ ] Produce a signed release APK, release notes, checksums and third-party notices
 
 ## Definition of done

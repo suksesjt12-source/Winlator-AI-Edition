@@ -5,14 +5,10 @@ import android.app.ActivityManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-
-import java.util.Locale;
 
 public class AIAssistantActivity extends Activity {
     private final int background = Color.rgb(14, 18, 28);
@@ -35,7 +31,7 @@ public class AIAssistantActivity extends Activity {
         addText(layout, "WINLATOR AI ASSISTANT", 23, Color.WHITE, true);
         addText(layout, "Offline device advisor • No API key required", 13, Color.LTGRAY, false);
 
-        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        ActivityManager manager = (ActivityManager)getSystemService(ACTIVITY_SERVICE);
         ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
         manager.getMemoryInfo(memory);
 
@@ -69,13 +65,10 @@ public class AIAssistantActivity extends Activity {
         addPanel(layout, "IMPORTANT", "This assistant gives local rule-based recommendations. It does not change CPU clocks, GPU clocks, Android system settings or guarantee higher FPS. Actual game launching still depends on the installed Wine, Box64 and graphics runtime.");
 
         Button close = new Button(this);
-        close.setText("Back to Winlator");
+        close.setText("Back to Launcher");
         close.setAllCaps(false);
         close.setOnClickListener(v -> finish());
-        layout.addView(close, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
+        layout.addView(close, new LinearLayout.LayoutParams(-1, -2));
 
         setContentView(scrollView);
     }
@@ -89,10 +82,7 @@ public class AIAssistantActivity extends Activity {
         addText(card, title, 12, accent, true);
         addText(card, value, 14, Color.WHITE, false);
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.bottomMargin = dp(10);
         parent.addView(card, params);
     }
@@ -104,15 +94,12 @@ public class AIAssistantActivity extends Activity {
         textView.setTextColor(color);
         if (bold) textView.setTypeface(textView.getTypeface(), android.graphics.Typeface.BOLD);
 
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
         params.bottomMargin = dp(8);
         parent.addView(textView, params);
     }
 
     private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+        return (int)(value * getResources().getDisplayMetrics().density + 0.5f);
     }
 }

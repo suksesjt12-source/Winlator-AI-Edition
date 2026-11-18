@@ -55,6 +55,7 @@ This roadmap tracks the work required to turn the project into a tested Winlator
 - [ ] Install and launch on physical ARM64 hardware
 - [ ] Verify container creation, component installation and a Windows test executable
 - [ ] Verify controls, audio, graphics, storage permissions, suspend/resume and thermal behaviour
+- [ ] Verify automated prerelease publishing of the debug APK and SHA-256 checksum
 - [ ] Produce a signed release APK, release notes, checksums and third-party notices
 
 ## Definition of done

@@ -116,15 +116,19 @@ public class AIAssistantActivity extends Activity {
 
         addPanel(content, "INSPECTION", "Reading " + fileName + " (maximum " + (MAX_INSPECT_BYTES / (1024L * 1024L)) + " MB)...");
         new Thread(() -> {
-            final String result;
-            try {
-                byte[] bytes = readBounded(uri);
-                result = NativeExecutionEngine.inspectExecutable(bytes);
-            } catch (Exception exception) {
-                result = "Inspection failed: " + exception.getMessage();
-            }
+            String result = inspectExecutable(uri);
             runOnUiThread(() -> addPanel(content, "NATIVE PE INSPECTION — " + fileName, result));
         }, "aie-pe-inspection").start();
+    }
+
+    private String inspectExecutable(Uri uri) {
+        try {
+            byte[] bytes = readBounded(uri);
+            return NativeExecutionEngine.inspectExecutable(bytes);
+        } catch (Exception exception) {
+            String detail = exception.getMessage();
+            return "Inspection failed: " + (detail == null ? exception.getClass().getSimpleName() : detail);
+        }
     }
 
     private byte[] readBounded(Uri uri) throws IOException {

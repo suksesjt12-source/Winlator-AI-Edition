@@ -28,8 +28,10 @@ def main() -> int:
     menu_xml = app / "app/src/main/res/menu/main_menu.xml"
     strings_xml = app / "app/src/main/res/values/strings.xml"
     manifest_xml = app / "app/src/main/AndroidManifest.xml"
+    build_gradle = app / "app/build.gradle"
+    file_utils = app / "app/src/main/java/com/winlator/core/FileUtils.java"
 
-    required = [source, main_activity, menu_xml, strings_xml, manifest_xml]
+    required = [source, main_activity, menu_xml, strings_xml, manifest_xml, build_gradle, file_utils]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
         raise FileNotFoundError("Missing upstream integration files: " + ", ".join(missing))
@@ -37,6 +39,27 @@ def main() -> int:
     destination = java_dir / "AIAssistantActivity.java"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, destination)
+
+    # Use a distinct Android application ID so this debug edition can coexist
+    # with an existing Winlator installation instead of replacing its app data.
+    replace_once(
+        build_gradle,
+        "applicationId 'com.winlator'",
+        "applicationId 'com.winlator.aiedition'",
+        "AI Edition application ID",
+    )
+    replace_once(
+        manifest_xml,
+        'android:authorities="com.winlator.FileProvider"',
+        'android:authorities="com.winlator.aiedition.FileProvider"',
+        "unique FileProvider authority",
+    )
+    replace_once(
+        file_utils,
+        '"com.winlator.FileProvider"',
+        '"com.winlator.aiedition.FileProvider"',
+        "FileProvider authority usage",
+    )
 
     replace_once(
         main_activity,

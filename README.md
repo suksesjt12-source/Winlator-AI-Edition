@@ -6,12 +6,12 @@
 
 ## Download the correct APK
 
-For the actual Winlator runtime base, use the **Upstream Winlator AI Build** workflow and download the artifact named **Winlator-AI-Edition-upstream-debug**:
+For the actual Winlator runtime base, use the **Upstream Winlator AI Build** output, not the standalone prototype:
 
-- [Latest upstream integration build](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions/runs/44256112036)
-- [Download upstream debug artifact](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions/runs/44256112036/artifacts/14405669003)
+- [GitHub Releases — direct APK assets](https://github.com/suksesjt12-source/Winlator-AI-Edition/releases)
+- [Latest upstream build workflow](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions)
 
-The artifact is a ZIP containing the debug APK. Extract it on Android, then install the APK. Android may ask you to allow installation from the file manager.
+The workflow now publishes the APK itself and a SHA-256 checksum as prerelease assets. Open the newest **Winlator AI Edition Debug** prerelease and download **app-debug.apk** directly; no ZIP extraction is required. The Actions artifact remains available as a separate backup.
 
 The separate **Android CI** artifact named **Winlator-AI-Edition-debug** is only the original standalone prototype. It is not the Winlator runtime build and cannot run Windows EXE files.
 
@@ -33,7 +33,7 @@ The separate **Android CI** artifact named **Winlator-AI-Edition-debug** is only
 
 ## Build workflows
 
-- **Upstream Winlator AI Build:** builds the upstream Winlator source, applies the AI Assistant extension, and uploads the upstream debug artifact.
+- **Upstream Winlator AI Build:** builds the upstream Winlator source, applies the AI Assistant extension, uploads the debug artifact, and publishes the APK plus SHA-256 checksum as prerelease assets.
 - **Android CI:** builds the original standalone prototype and uploads its separate debug artifact.
 
 The upstream workflow uses JDK 17 and installs Android SDK/NDK/CMake build dependencies on the GitHub runner.

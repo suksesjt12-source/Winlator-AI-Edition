@@ -6,6 +6,7 @@ on:
     branches: [ "main" ]
     paths:
       - "integration/**"
+      - "engine/**"
       - "scripts/**"
       - ".github/workflows/upstream-winlator.yml"
       - "docs/UPSTREAM_INTEGRATION.md"

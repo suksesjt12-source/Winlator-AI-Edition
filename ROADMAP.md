@@ -1,6 +1,6 @@
 # Development Roadmap
 
-This roadmap tracks the work required to turn the current Android prototype into a usable Winlator-based application.
+This roadmap tracks the work required to turn the project into a tested Winlator-based Android application with additional AI assistance.
 
 ## Phase 1 — Android foundation
 - [x] Android application project and launcher screen
@@ -9,51 +9,56 @@ This roadmap tracks the work required to turn the current Android prototype into
 - [x] Local rule-based assistant
 - [x] Initial advisory performance profiles
 
-## Phase 2 — Game library and per-game settings
-- [x] Android Storage Access Framework picker for `.exe` files
+## Phase 2 — Standalone prototype library
+- [x] Android Storage Access Framework picker for EXE files
 - [x] Persist selected document URIs without broad storage permissions
 - [x] Store a profile for each selected game
 - [ ] Validate file-provider edge cases on real devices
 - [ ] Add editable game metadata and profile export/import
 
-## Phase 3 — Integrate the actual Windows compatibility runtime
-- [ ] Use the upstream Winlator Android project as the compatibility base
-- [ ] Preserve upstream source attribution and LGPL-2.1 obligations
-- [ ] Build and package compatible ARM64 native components
-- [ ] Add a component catalog with version, ABI, source URL and checksum verification
-- [ ] Install required Wine, Box64 and graphics components into the application data area
-- [ ] Handle installation failure, insufficient storage, cancellation and resume safely
+## Phase 3 — Upstream Winlator integration
+- [x] Use upstream Winlator Android project as the compatibility base in CI
+- [x] Preserve upstream source attribution and original Git submodule references
+- [x] Add the AI Assistant Activity, navigation entry and manifest registration
+- [x] Build the upstream-based ARM64 debug APK successfully in GitHub Actions
+- [x] Reuse upstream container, shortcut, file-manager and component-management screens
+- [ ] Install and launch the APK on physical ARM64 hardware
+- [ ] Verify Wine, Box64 and required system files install correctly on first run
+- [ ] Validate the component download flow, storage handling and recovery from failed downloads
 
-## Phase 4 — Container and executable workflow
-- [ ] Create, list, configure and remove Wine containers
-- [ ] Import an executable into a selected container
-- [ ] Create per-game launch shortcuts
-- [ ] Launch the selected executable through the real Winlator runtime
-- [ ] Preserve container isolation and user data
+## Phase 4 — Runtime and executable validation
+- [x] Include upstream container creation and management implementation
+- [x] Include upstream executable shortcut and file-management implementation
+- [ ] Verify creating and configuring a container on a physical device
+- [ ] Verify installing/selecting runtime components in the container
+- [ ] Verify launching a legally obtained Windows test executable
+- [ ] Verify container isolation and persistence across app restarts
 
 ## Phase 5 — Device-aware graphics and performance
-- [ ] Detect Android ABI, SoC, GPU and Vulkan/OpenGL capabilities
-- [ ] Apply conservative renderer defaults for Mali-class and Adreno-class GPUs
-- [ ] Add resolution, DX wrapper, audio and Box64 presets by game
-- [ ] Persist settings and provide rollback to known-safe defaults
+- [ ] Detect Android ABI, SoC, GPU and Vulkan/OpenGL capabilities reliably
+- [ ] Apply conservative renderer guidance for Mali-class and Adreno-class GPUs
+- [ ] Add tested resolution, DX wrapper, audio and Box64 recommendations by game
+- [ ] Persist recommendations and provide rollback to known-safe settings
 - [ ] Monitor frame rate and thermal status only where Android exposes reliable data
+- [ ] Validate performance on Helio G100 / Mali-G57 hardware
 
 ## Phase 6 — AI assistance
-- [ ] Provide offline rule-based diagnosis and setup guidance
+- [x] Provide initial offline device information and rule-based setup guidance
 - [ ] Parse user-approved Winlator logs and explain likely causes
 - [ ] Recommend reversible per-game configuration changes
-- [ ] Make any cloud AI integration optional, opt-in and independent of core game execution
+- [ ] Connect recommendations to actual container settings with explicit user approval
+- [ ] Keep any cloud AI integration optional and opt-in
 
 ## Phase 7 — Verification and release
-- [ ] Build debug and signed release APKs reproducibly
-- [ ] Run unit tests and Android lint checks
+- [x] Build and upload an upstream-based debug APK reproducibly in GitHub Actions
+- [ ] Run Android lint and targeted automated tests
 - [ ] Install and launch on physical ARM64 hardware
-- [ ] Verify container creation, component installation and a legally obtained test executable
+- [ ] Verify container creation, component installation and a Windows test executable
 - [ ] Verify controls, audio, graphics, storage permissions, suspend/resume and thermal behaviour
-- [ ] Publish release notes, checksums and third-party notices
+- [ ] Produce a signed release APK, release notes, checksums and third-party notices
 
 ## Definition of done
 
-The project is considered ready for an initial public release only when a release APK can be installed, create a container, install or select the required runtime components, and launch a supported Windows test application on physical ARM64 hardware. A successful Gradle build alone is not sufficient.
+The project is ready for an initial public release only when a release APK can be installed, create a container, install or select the required runtime components, and launch a supported Windows test application on physical ARM64 hardware. A successful Gradle build alone is not sufficient.
 
 No compatibility promise can cover every Windows game. Results depend on the CPU instruction set, Wine version, Box64 build, GPU driver, graphics API and the game itself.

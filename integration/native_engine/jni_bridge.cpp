@@ -29,7 +29,7 @@ Java_com_winlator_NativeExecutionEngine_nativeGetStatus(JNIEnv* env, jclass) {
     return to_java_string(
         env,
         "AI Edition native core loaded. PE32/PE32+ inspection and a limited x86-64 "
-        "instruction subset are available; full Windows execution is not implemented."
+        "instruction and bounded guest-memory subsets are available; full Windows execution is not implemented."
     );
 }
 
@@ -93,6 +93,7 @@ Java_com_winlator_NativeExecutionEngine_nativeRunInterpreterSelfTest(
     output << "PASS | x86-64 interpreter executed its built-in test program"
            << " | RAX=" << result.state.registers[0]
            << " | RCX=" << result.state.registers[1]
+           << " | guest memory read/write=pass"
            << " | stack restored=" << (result.state.registers[4] == aie::engine::X64_STACK_SIZE ? "yes" : "no")
            << " | instructions=" << result.instructions_executed;
     return to_java_string(env, output.str());

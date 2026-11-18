@@ -1,4 +1,5 @@
 #include "aie/x64_interpreter.hpp"
+#include "aie/guest_memory.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -84,6 +85,80 @@ X64RunResult stop(X64CpuState state, X64StopReason reason,
 }
 
 
+
+enum class AddressDecodeResult { Success, Truncated, Unsupported };
+
+AddressDecodeResult decode_memory_address(
+    const std::uint8_t* code, std::size_t code_size, std::size_t& cursor,
+    std::uint8_t modrm, std::uint8_t rex,
+    const X64CpuState& state, std::uint64_t& address) {
+    const std::uint8_t mod = modrm >> 6;
+    const std::uint8_t rm_field = modrm & 7U;
+    if (mod == 3) return AddressDecodeResult::Unsupported;
+
+    std::uint64_t base = 0;
+    std::uint64_t index = 0;
+    unsigned scale = 1;
+    bool has_base = true;
+    bool has_index = false;
+
+    if (rm_field == 4) {
+        if (cursor >= code_size) return AddressDecodeResult::Truncated;
+        const std::uint8_t sib = code[cursor++];
+        scale = 1U << (sib >> 6);
+        const std::uint8_t index_field = (sib >> 3) & 7U;
+        const std::uint8_t base_field = sib & 7U;
+        const bool extend_index = (rex & 0x02U) != 0;
+        const bool extend_base = (rex & 0x01U) != 0;
+
+        if (index_field != 4U || extend_index) {
+            const std::size_t index_register =
+                index_field + (extend_index ? 8U : 0U);
+            index = state.registers[index_register];
+            has_index = true;
+        }
+
+        if (mod == 0 && base_field == 5U) {
+            has_base = false; // SIB no-base form with a signed disp32.
+        } else {
+            const std::size_t base_register =
+                base_field + (extend_base ? 8U : 0U);
+            base = state.registers[base_register];
+        }
+    } else if (mod == 0 && rm_field == 5U) {
+        // RIP-relative addressing is deliberately deferred until code has a
+        // guest virtual base and instruction fetch uses the same address map.
+        return AddressDecodeResult::Unsupported;
+    } else {
+        const std::size_t base_register =
+            rm_field + ((rex & 0x01U) ? 8U : 0U);
+        base = state.registers[base_register];
+    }
+
+    std::int64_t displacement = 0;
+    if (mod == 1 || (mod == 0 && !has_base)) {
+        if (mod == 1) {
+            if (cursor >= code_size) return AddressDecodeResult::Truncated;
+            displacement = static_cast<std::int8_t>(code[cursor++]);
+        } else {
+            if (cursor > code_size || 4U > code_size - cursor)
+                return AddressDecodeResult::Truncated;
+            displacement = static_cast<std::int32_t>(read32(code + cursor));
+            cursor += 4U;
+        }
+    } else if (mod == 2) {
+        if (cursor > code_size || 4U > code_size - cursor)
+            return AddressDecodeResult::Truncated;
+        displacement = static_cast<std::int32_t>(read32(code + cursor));
+        cursor += 4U;
+    }
+
+    address = (has_base ? base : 0U) +
+              (has_index ? index * static_cast<std::uint64_t>(scale) : 0U) +
+              static_cast<std::uint64_t>(displacement);
+    return AddressDecodeResult::Success;
+}
+
 bool push64(X64CpuState& state, std::uint64_t value) {
     std::uint64_t& rsp = state.registers[4];
     if (rsp > X64_STACK_SIZE || rsp < 8U) return false;
@@ -105,7 +180,8 @@ bool pop64(X64CpuState& state, std::uint64_t& value) {
 } // namespace
 
 X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
-                            X64CpuState state, std::size_t maximum_steps) {
+                            X64CpuState state, std::size_t maximum_steps,
+                            GuestMemory* guest_memory) {
     if (code == nullptr || state.rip >= code_size)
         return stop(state, X64StopReason::InvalidInstructionPointer, 0,
                     "Instruction pointer is outside the code buffer.");
@@ -235,15 +311,55 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                             "Register instruction is missing its ModRM byte.");
             const std::uint8_t modrm = code[cursor++];
             const std::uint8_t mod = modrm >> 6;
-            if (mod != 3)
-                return stop(state, X64StopReason::UnsupportedInstruction, executed,
-                            "Memory-addressing ModRM forms are not implemented.");
             const std::size_t reg = ((modrm >> 3) & 7U) + ((rex & 0x04U) ? 8U : 0U);
-            const std::size_t rm = (modrm & 7U) + ((rex & 0x01U) ? 8U : 0U);
             const bool wide = (rex & 0x08U) != 0;
             const unsigned width = wide ? 64U : 32U;
+            const std::size_t operand_size = wide ? 8U : 4U;
             const std::uint64_t mask = wide
                 ? std::numeric_limits<std::uint64_t>::max() : 0xffffffffULL;
+
+            if (mod != 3) {
+                if (opcode != 0x89 && opcode != 0x8b)
+                    return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                                "Only MOV supports guest-memory operands in this interpreter build.");
+                if (guest_memory == nullptr)
+                    return stop(state, X64StopReason::MemoryFault, executed,
+                                "Instruction requires a guest-memory context.");
+                std::uint64_t address = 0;
+                const auto address_result = decode_memory_address(
+                    code, code_size, cursor, modrm, rex, state, address);
+                if (address_result == AddressDecodeResult::Truncated)
+                    return stop(state, X64StopReason::TruncatedInstruction, executed,
+                                "MOV memory address is truncated.");
+                if (address_result != AddressDecodeResult::Success)
+                    return stop(state, X64StopReason::UnsupportedInstruction, executed,
+                                "MOV uses an unsupported guest-memory addressing mode.");
+
+                if (opcode == 0x89) {
+                    std::uint8_t bytes[8]{};
+                    const std::uint64_t value = state.registers[reg] & mask;
+                    for (std::size_t i = 0; i < operand_size; ++i)
+                        bytes[i] = static_cast<std::uint8_t>(value >> (i * 8U));
+                    if (!guest_memory->write(address, bytes, operand_size))
+                        return stop(state, X64StopReason::MemoryFault, executed,
+                                    "MOV store targeted unmapped or non-writable guest memory.");
+                } else {
+                    std::uint8_t bytes[8]{};
+                    if (!guest_memory->read(address, bytes, operand_size))
+                        return stop(state, X64StopReason::MemoryFault, executed,
+                                    "MOV load targeted unmapped or non-readable guest memory.");
+                    std::uint64_t value = 0;
+                    for (std::size_t i = 0; i < operand_size; ++i)
+                        value |= static_cast<std::uint64_t>(bytes[i]) << (i * 8U);
+                    state.registers[reg] = value;
+                }
+                state.rip = cursor;
+                ++executed;
+                continue;
+            }
+
+            const std::size_t rm =
+                (modrm & 7U) + ((rex & 0x01U) ? 8U : 0U);
             const bool writes_rm = opcode == 0x89 || opcode == 0x31;
             const std::size_t destination = writes_rm ? rm : reg;
             const std::uint64_t left = state.registers[destination] & mask;
@@ -342,13 +458,26 @@ X64RunResult run_x64_self_test() {
         0x48, 0xb9, 0x02, 0, 0, 0, 0, 0, 0, 0,
         0x59,
         0x48, 0x89, 0xc8,
+        0x48, 0x89, 0x43, 0x08,
+        0x48, 0x8b, 0x4b, 0x08,
         0xe8, 0x07, 0, 0, 0,
         0x48, 0x05, 0x02, 0, 0, 0,
         0xc3,
         0x48, 0x05, 0x03, 0, 0, 0,
         0xc3
     };
-    return run_x64_subset(program, sizeof(program));
+    GuestMemory memory;
+    std::string error;
+    if (!memory.map(0x10000U, static_cast<std::size_t>(GUEST_PAGE_SIZE),
+                    GuestMemoryRead | GuestMemoryWrite, &error)) {
+        X64RunResult failed;
+        failed.reason = X64StopReason::MemoryFault;
+        failed.error = error;
+        return failed;
+    }
+    X64CpuState initial;
+    initial.registers[3] = 0x10000U; // RBX points at the mapped guest page.
+    return run_x64_subset(program, sizeof(program), initial, 1000, &memory);
 }
 
 } // namespace aie::engine

@@ -1,4 +1,5 @@
 #include "aie/x64_interpreter.hpp"
+#include "aie/guest_memory.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -114,6 +115,52 @@ int main() {
     assert(call_result.state.registers[4] == aie::engine::X64_STACK_SIZE);
     assert(call_result.instructions_executed == 5);
 
+    // MOV [RBX+disp8],RAX and MOV RCX,[RBX+disp8] use bounded guest memory.
+    aie::engine::GuestMemory guest_memory(4096);
+    assert(guest_memory.map(0x40000U, 4096,
+        aie::engine::GuestMemoryRead | aie::engine::GuestMemoryWrite));
+    const std::vector<std::uint8_t> memory_ops{
+        0x48, 0xb8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+        0x48, 0x89, 0x43, 0x08,
+        0x48, 0x8b, 0x4b, 0x08,
+        0xc3
+    };
+    aie::engine::X64CpuState memory_state;
+    memory_state.registers[3] = 0x40000U;
+    const auto memory_result = aie::engine::run_x64_subset(
+        memory_ops.data(), memory_ops.size(), memory_state, 1000, &guest_memory);
+    assert(memory_result.returned());
+    assert(memory_result.state.registers[1] == 0x1122334455667788ULL);
+
+    // SIB addressing: [RBX + RCX*4 + 0x10].
+    const std::vector<std::uint8_t> sib_ops{
+        0x48, 0xb8, 0x2a, 0, 0, 0, 0, 0, 0, 0,
+        0x48, 0x89, 0x44, 0x8b, 0x10,
+        0x48, 0x8b, 0x4c, 0x8b, 0x10,
+        0xc3
+    };
+    memory_state.registers[1] = 3;
+    const auto sib_result = aie::engine::run_x64_subset(
+        sib_ops.data(), sib_ops.size(), memory_state, 1000, &guest_memory);
+    assert(sib_result.returned());
+    assert(sib_result.state.registers[1] == 42);
+
+    // Read-only mappings reject guest stores with an explicit memory fault.
+    assert(guest_memory.protect(0x40000U, 4096, aie::engine::GuestMemoryRead));
+    const std::vector<std::uint8_t> faulting_store{
+        0x48, 0x89, 0x43, 0x08, 0xc3
+    };
+    const auto memory_fault = aie::engine::run_x64_subset(
+        faulting_store.data(), faulting_store.size(), memory_state, 1000, &guest_memory);
+    assert(memory_fault.reason == aie::engine::X64StopReason::MemoryFault);
+
+    // The JNI smoke test includes a guest-memory store and load.
+    const auto self_test = aie::engine::run_x64_self_test();
+    assert(self_test.returned());
+    assert(self_test.state.registers[0] == 45);
+    assert(self_test.state.registers[1] == 40);
+    assert(self_test.state.registers[4] == aie::engine::X64_STACK_SIZE);
+
     // An invalid stack pointer must fail safely instead of indexing the array.
     aie::engine::X64CpuState bad_stack_state;
     bad_stack_state.registers[4] = 4;
@@ -135,14 +182,6 @@ int main() {
     const auto limited =
         aie::engine::run_x64_subset(no_return.data(), no_return.size(), {}, 1);
     assert(limited.reason == aie::engine::X64StopReason::StepLimitReached);
-
-    // Canonical JNI smoke test: register moves, PUSH/POP, CALL, nested RET and arithmetic.
-    const auto self_test = aie::engine::run_x64_self_test();
-    assert(self_test.returned());
-    assert(self_test.state.registers[0] == 45);
-    assert(self_test.state.registers[1] == 40);
-    assert(self_test.state.registers[4] == aie::engine::X64_STACK_SIZE);
-
     std::cout << "x86-64 interpreter subset tests passed\n";
     return 0;
 }

@@ -100,9 +100,11 @@ def main() -> int:
         engine_root / "include/aie/pe_image.hpp",
         engine_root / "include/aie/pe_loader.hpp",
         engine_root / "include/aie/x64_interpreter.hpp",
+        engine_root / "include/aie/guest_memory.hpp",
         engine_root / "src/pe_image.cpp",
         engine_root / "src/pe_loader.cpp",
         engine_root / "src/x64_interpreter.cpp",
+        engine_root / "src/guest_memory.cpp",
         source_root / "assets/ai_cover.webp",
         source_root / "assets/ic_launcher.xml",
         source_root / "assets/ic_launcher_round.xml",
@@ -125,9 +127,11 @@ def main() -> int:
         "include/aie/pe_image.hpp",
         "include/aie/pe_loader.hpp",
         "include/aie/x64_interpreter.hpp",
+        "include/aie/guest_memory.hpp",
         "src/pe_image.cpp",
         "src/pe_loader.cpp",
         "src/x64_interpreter.cpp",
+        "src/guest_memory.cpp",
     ]:
         shutil.copy2(engine_root / relative, native_target / relative)
     shutil.copy2(native_cmake_source, native_target / "CMakeLists.txt")

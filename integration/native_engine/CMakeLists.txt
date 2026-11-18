@@ -2,6 +2,7 @@ add_library(aie_execution_engine SHARED
     jni_bridge.cpp
     src/pe_image.cpp
     src/pe_loader.cpp
+    src/guest_memory.cpp
     src/x64_interpreter.cpp
 )
 

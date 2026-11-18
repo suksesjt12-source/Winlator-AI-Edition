@@ -35,15 +35,21 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [x] Add semantic tests for stack bounds and local function calls
 - [x] Add short JMP/JE/JNE branch handling and semantic tests
 - [x] Add initial mapped-entry byte-sequence test
-- [ ] Expand instruction decoding, memory operands, stack frames and exception behavior
+- [x] Add bounded guest virtual-memory regions with page alignment, permissions, protection changes and allocation limits
+- [x] Add MOV load/store for base-register and SIB effective-address forms
+- [x] Add guest-memory fault tests for unmapped and non-writable ranges
+- [x] Separate execute permission checks from data-read permission checks
+- [ ] Expand instruction decoding, RIP-relative memory operands, stack frames and exception behavior
 - [x] Compile and package the native core into the Android APK through a JNI shared library (metadata inspection only)
 - [x] Invoke a fixed, built-in x86-64 smoke-test program through JNI (not user-supplied executable bytes)
+- [x] Exercise guest-memory loads and stores in the JNI smoke test
 - [ ] Add ARM64 JIT only after broad interpreter correctness is established
 - [ ] Add differential tests against a trusted reference implementation
 
 ### Milestone 4: Windows ABI and system services
 - [ ] Process and thread lifecycle
-- [ ] Virtual memory and synchronization primitives
+- [x] Initial bounded guest virtual-memory map and permission enforcement
+- [ ] Full Windows process virtual memory, allocation APIs and synchronization primitives
 - [ ] File and directory APIs with Android storage-grant boundaries
 - [ ] Dynamic module loading and core runtime libraries
 - [ ] Registry and environment support

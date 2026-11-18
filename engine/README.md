@@ -16,7 +16,7 @@ This is the independent native-engine development track. It is separate from the
 
 ## Explicit limitations
 
-This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The PE loader does not automatically transfer control to a loaded image's entry point. The test only passes a synthetic byte sequence from the mapped section to the subset interpreter; this does not demonstrate execution of a real Windows program.
+This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The PE loader does not automatically transfer control to a loaded image's entry point. The test only passes a synthetic byte sequence from the mapped section to the subset interpreter; this does not demonstrate execution of a real Windows program. The ARM64 cross-build is a compile check, not a device execution test.
 
 Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread and memory APIs, system DLLs, exception dispatch, TLS callbacks, registry, graphics, audio, input, Android JNI integration or game compatibility. The ARM64 cross-build is a compile check only; it is not a device execution test.
 

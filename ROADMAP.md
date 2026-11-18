@@ -37,7 +37,7 @@ This roadmap separates the existing upstream-based Android app from the new inde
 - [x] Add initial mapped-entry byte-sequence test
 - [ ] Expand instruction decoding, memory operands, stack frames and exception behavior
 - [x] Compile and package the native core into the Android APK through a JNI shared library (metadata inspection only)
-- [ ] Invoke the x86-64 interpreter through a controlled native test interface
+- [x] Invoke a fixed, built-in x86-64 smoke-test program through JNI (not user-supplied executable bytes)
 - [ ] Add ARM64 JIT only after broad interpreter correctness is established
 - [ ] Add differential tests against a trusted reference implementation
 
@@ -58,7 +58,7 @@ This roadmap separates the existing upstream-based Android app from the new inde
 
 ### Milestone 6: Android integration
 - [x] Build and package native engine sources for Android ARM64 using NDK
-- [x] JNI boundary for bounded PE metadata inspection
+- [x] JNI boundary for bounded PE metadata inspection and fixed interpreter smoke test
 - [ ] JNI execution interface with explicit memory ownership and error reporting
 - [ ] Sandboxed per-game process/session management
 - [ ] Connect AI Assistant to measured engine diagnostics

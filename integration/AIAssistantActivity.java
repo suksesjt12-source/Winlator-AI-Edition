@@ -65,6 +65,16 @@ public class AIAssistantActivity extends Activity {
         inspect.setOnClickListener(v -> chooseExecutable());
         content.addView(inspect, new LinearLayout.LayoutParams(-1, -2));
 
+        Button engineTest = new Button(this);
+        engineTest.setText("Run Native CPU Self-Test");
+        engineTest.setAllCaps(false);
+        engineTest.setOnClickListener(v -> addPanel(
+                content,
+                "NATIVE CPU SELF-TEST",
+                NativeExecutionEngine.runInterpreterSelfTest()
+        ));
+        content.addView(engineTest, new LinearLayout.LayoutParams(-1, -2));
+
         String profile;
         String resolution;
         if (availableMb < 1500L) {
@@ -81,7 +91,7 @@ public class AIAssistantActivity extends Activity {
         addPanel(content, "SUGGESTED PROFILE", profile);
         addPanel(content, "STARTING POINT", resolution);
         addPanel(content, "GPU COMPATIBILITY", "Select only graphics drivers supported by the device GPU. Turnip is an Adreno-oriented driver and is not a universal Mali driver. Validate Vortek or VirGL support on the target device.");
-        addPanel(content, "IMPORTANT", "The native tool below only reads PE executable metadata. It does not launch or execute the selected file. This assistant gives local rule-based recommendations and does not change CPU clocks, GPU clocks or Android system settings. Actual game launching still depends on the installed Wine, Box64 and graphics runtime.");
+        addPanel(content, "IMPORTANT", "The native tools can inspect PE executable metadata and run a fixed, built-in CPU instruction self-test. They do not launch or execute the selected .exe file. This assistant gives local rule-based recommendations and does not change CPU clocks, GPU clocks or Android system settings. Actual game launching still depends on the installed Wine, Box64 and graphics runtime.");
 
         Button close = new Button(this);
         close.setText("Back to Launcher");

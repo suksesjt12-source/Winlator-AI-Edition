@@ -48,4 +48,6 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                             X64CpuState initial_state = {},
                             std::size_t maximum_steps = 100000);
 
+X64RunResult run_x64_self_test();
+
 } // namespace aie::engine

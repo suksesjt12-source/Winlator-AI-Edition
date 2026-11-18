@@ -136,6 +136,13 @@ int main() {
         aie::engine::run_x64_subset(no_return.data(), no_return.size(), {}, 1);
     assert(limited.reason == aie::engine::X64StopReason::StepLimitReached);
 
+    // Canonical JNI smoke test: register moves, PUSH/POP, CALL, nested RET and arithmetic.
+    const auto self_test = aie::engine::run_x64_self_test();
+    assert(self_test.returned());
+    assert(self_test.state.registers[0] == 45);
+    assert(self_test.state.registers[1] == 40);
+    assert(self_test.state.registers[4] == aie::engine::X64_STACK_SIZE);
+
     std::cout << "x86-64 interpreter subset tests passed\n";
     return 0;
 }

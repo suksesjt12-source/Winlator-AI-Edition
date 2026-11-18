@@ -15,11 +15,11 @@ The current Android application is based on the upstream Winlator runtime. The c
 - Import descriptor/thunk parsing through an explicit caller-supplied resolver.
 - A deliberately small x86-64 interpreter subset (NOP, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE, register/immediate PUSH, register POP, near relative CALL and nested RET).
 - A 4 KiB bounded interpreter-local stack with checked PUSH/POP/CALL/RET accesses.
-- JNI shared library integrated into the upstream-based APK. The AI Assistant can inspect selected .exe files and display PE architecture, section count, entry RVA and image size.
+- JNI shared library integrated into the upstream-based APK. The AI Assistant can inspect selected .exe metadata and run a fixed, built-in x86-64 interpreter smoke test (registers, stack, arithmetic and local CALL/RET).
 - Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
 - An Android NDK cross-build targeting `arm64-v8a`.
 
-**Important:** this is not yet a working standalone Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no general x86/x64-to-ARM64 execution engine, Windows API layer, or independent graphics/audio/input compatibility. The JNI integration only reports engine status and inspects PE metadata; it does not launch or execute an .exe file.
+**Important:** this is not yet a working standalone Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no general x86/x64-to-ARM64 execution engine, Windows API layer, or independent graphics/audio/input compatibility. The JNI integration can also run one fixed, built-in interpreter test program. It still does not execute bytes from a selected .exe or launch Windows applications.
 
 ## Android application today
 
@@ -27,7 +27,7 @@ The current Android application is based on the upstream Winlator runtime. The c
 - Offline, rule-based device advisor.
 - Existing container, shortcut, file-management, input and runtime component flows supplied by upstream Winlator.
 - Distinct Android application ID: `com.winlator.aiedition`.
-- JNI bridge included in the upstream build to inspect PE metadata; the upstream Wine/Box64 runtime remains the actual Windows execution backend.
+- JNI bridge included in the upstream build for PE metadata inspection and a fixed x86-64 interpreter self-test; the upstream Wine/Box64 runtime remains the actual Windows execution backend.
 
 The current installable APK is still upstream-runtime-based. The native core is built as a JNI shared library inside that APK, but it is not yet a capable Windows execution engine and is not a replacement for Wine/Box64.
 

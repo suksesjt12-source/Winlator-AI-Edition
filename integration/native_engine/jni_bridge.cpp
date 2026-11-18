@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include "aie/pe_image.hpp"
+#include "aie/x64_interpreter.hpp"
 
 #include <cstdint>
 #include <iomanip>
@@ -67,3 +68,33 @@ Java_com_winlator_NativeExecutionEngine_nativeInspectExecutable(
            << " | image size: 0x" << parsed.image.size_of_image;
     return to_java_string(env, output.str());
 }
+
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_winlator_NativeExecutionEngine_nativeRunInterpreterSelfTest(
+    JNIEnv* env, jclass) {
+    const auto result = aie::engine::run_x64_self_test();
+    if (!result.returned()) {
+        return to_java_string(env, "FAIL | interpreter stopped: " + result.error);
+    }
+
+    const bool passed = result.state.registers[0] == 45 &&
+                        result.state.registers[1] == 40 &&
+                        result.state.registers[4] == aie::engine::X64_STACK_SIZE;
+    if (!passed) {
+        std::ostringstream failure;
+        failure << "FAIL | RAX=" << result.state.registers[0]
+                << " | RCX=" << result.state.registers[1]
+                << " | RSP=" << result.state.registers[4];
+        return to_java_string(env, failure.str());
+    }
+
+    std::ostringstream output;
+    output << "PASS | x86-64 interpreter executed its built-in test program"
+           << " | RAX=" << result.state.registers[0]
+           << " | RCX=" << result.state.registers[1]
+           << " | stack restored=" << (result.state.registers[4] == aie::engine::X64_STACK_SIZE ? "yes" : "no")
+           << " | instructions=" << result.instructions_executed;
+    return to_java_string(env, output.str());
+}
+

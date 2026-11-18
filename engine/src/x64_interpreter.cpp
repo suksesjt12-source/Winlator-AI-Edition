@@ -331,4 +331,23 @@ X64RunResult run_x64_subset(const std::uint8_t* code, std::size_t code_size,
                 "Interpreter instruction limit reached before RET.");
 }
 
+
+X64RunResult run_x64_self_test() {
+    // mov rax,40; push rax; mov rcx,2; pop rcx; mov rax,rcx;
+    // call local_add_three; add rax,2; ret
+    // local_add_three: add rax,3; ret
+    static constexpr std::uint8_t program[] = {
+        0x48, 0xb8, 0x28, 0, 0, 0, 0, 0, 0, 0,
+        0x50,
+        0x48, 0xb9, 0x02, 0, 0, 0, 0, 0, 0, 0,
+        0x59,
+        0x48, 0x89, 0xc8,
+        0xe8, 0x06, 0, 0, 0,
+        0x48, 0x05, 0x02, 0, 0, 0,
+        0x48, 0x05, 0x03, 0, 0, 0,
+        0xc3
+    };
+    return run_x64_subset(program, sizeof(program));
+}
+
 } // namespace aie::engine

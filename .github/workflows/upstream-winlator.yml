@@ -46,7 +46,9 @@ jobs:
             echo "sdkmanager was not found under $ANDROID_HOME/cmdline-tools" >&2
             exit 1
           fi
+          set +o pipefail
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
+          set -o pipefail
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
             "platform-tools" \
             "platforms;android-35" \

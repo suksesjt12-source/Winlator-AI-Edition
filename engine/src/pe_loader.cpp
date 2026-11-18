@@ -88,8 +88,6 @@ bool apply_relocations(LoadedPeImage& loaded, std::string& error) {
         error = "Base-relocation directory is outside the mapped image.";
         return false;
     }
-    if (!relocated) return true;
-
     std::size_t cursor = directory.rva;
     const std::size_t end = cursor + directory.size;
     while (cursor < end) {
@@ -126,6 +124,8 @@ bool apply_relocations(LoadedPeImage& loaded, std::string& error) {
                 error = "Base-relocation target is outside the mapped image.";
                 return false;
             }
+
+            if (!relocated) continue;
 
             std::uint64_t original = is_64
                 ? read64(loaded.memory.data() + patch_rva)
@@ -176,7 +176,8 @@ bool resolve_imports(LoadedPeImage& loaded, const ImportResolver& resolver,
         const std::uint32_t original_thunk = read32(d);
         const std::uint32_t name_rva = read32(d + 12);
         const std::uint32_t first_thunk = read32(d + 16);
-        if (original_thunk == 0 && name_rva == 0 && first_thunk == 0) {
+        if (original_thunk == 0 && read32(d + 4) == 0 &&
+            read32(d + 8) == 0 && name_rva == 0 && first_thunk == 0) {
             descriptor_terminator_found = true;
             break;
         }

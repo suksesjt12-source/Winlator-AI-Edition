@@ -1,4 +1,5 @@
 #include "aie/pe_loader.hpp"
+#include "aie/x64_interpreter.hpp"
 
 #include <cassert>
 #include <cstdint>
@@ -66,6 +67,10 @@ static std::vector<std::uint8_t> make_pe64() {
     put32(b, idata + 20, 0x240);
     put32(b, idata + 36, 0xc0000040);
 
+    // A tiny x64 test sequence at the image entry point: MOV EAX,42; RET.
+    b[0x200] = 0xb8;
+    b[0x201] = 42;
+    b[0x205] = 0xc3;
     put64(b, 0x208, 0x140001234ULL);
     put32(b, 0x220, 0x1000);
     put32(b, 0x224, 12);
@@ -112,6 +117,12 @@ int main() {
     assert(loaded.image.memory[0x1009] == 0x12);
     assert(loaded.image.memory[0x100a] == 0x10);
     assert(loaded.image.memory[0x100b] == 0x40);
+    // Execute only the deliberately supported instruction subset from the mapped entry bytes.
+    const auto entry_test = aie::engine::run_x64_subset(
+        loaded.image.memory.data() + 0x1000, 0x20);
+    assert(entry_test.returned());
+    assert(entry_test.state.registers[0] == 42);
+
     // The resolver's function address is written to the IAT.
     assert(loaded.image.memory[0x3048] == 0x78);
     assert(loaded.image.memory[0x3049] == 0x56);

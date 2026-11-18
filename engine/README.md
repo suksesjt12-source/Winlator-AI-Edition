@@ -1,24 +1,37 @@
 # AI Edition Native Execution Engine
 
-This directory starts the independent native engine track. It is deliberately separate from the upstream Winlator integration.
+This is the independent native-engine development track. It is separate from the Android launcher and upstream Winlator runtime.
 
-## Current implementation
+## Implemented core
 
-- A bounds-checked PE/COFF metadata inspector for PE32 x86 and PE32+ x86-64 executables.
-- Machine/format validation, entry-point RVA and preferred image-base extraction.
-- Section-table parsing and raw-section range validation.
-- Host-side CMake tests for valid and malformed PE files.
+- Bounds-checked PE32 x86 and PE32+ x86-64 metadata inspection.
+- PE image mapping into a bounded, zero-initialized virtual byte array.
+- Header and section copying with range and overlap checks.
+- PE32 HIGHLOW and PE32+ DIR64 base relocations.
+- Import descriptor/thunk parsing with a caller-provided symbol resolver.
+- A small x86-64 interpreter subset: NOP, RET, MOV immediate to register, ADD RAX immediate and SUB RAX immediate.
+- Host-native CMake tests for valid, malformed, relocation, import and interpreter cases.
 
-## Not implemented yet
+## Explicit limitations
 
-This is **not an executable Windows runtime**. It does not map PE sections into process memory, apply relocations, resolve imports, execute x86 instructions, provide Windows APIs, or implement graphics/audio/input. Selecting an EXE in the Android UI must not be presented as proof that it can run.
+This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The mapped image is data only and this milestone does not jump to its entry point or execute a loaded PE file.
 
-## Planned engine layers
+Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread and memory APIs, system DLLs, exception dispatch, TLS callbacks, registry, graphics, audio, input, Android JNI integration or game compatibility.
 
-1. PE loader: image mapping, relocations, imports, TLS and exception metadata.
-2. x86/x86-64 execution: a documented interpreter/JIT or a separately licensed translation backend, with ARM64 host integration.
-3. Windows ABI and system services: process/thread, memory, files, registry, synchronization and loader APIs.
-4. Graphics/audio/input: Direct3D-to-Vulkan/OpenGL translation, audio backend and Android input bridge.
-5. Android process/container manager: per-game sandbox, lifecycle, storage grants and diagnostics.
+## Planned layers
 
-The target is an ARM64 Android device. The first hardware validation target is Helio G100 / Mali-G57, but no performance or game-compatibility claim is made until real-device tests pass.
+1. Expand PE loader coverage: TLS, exception/unwind metadata, delay imports, more relocation types and robust malformed-file corpus.
+2. Expand x86/x64 CPU semantics and differential tests, then evaluate a separately licensed decoder/JIT backend.
+3. Implement a Windows ABI/system-service compatibility layer and module registry.
+4. Add graphics/audio/input backends and connect them to Android surfaces.
+5. Integrate the engine into the Android app through JNI only after the native APIs are stable.
+
+## Safety and validation gates
+
+- Parsing a PE is not loading it.
+- Mapping and relocating an image is not executing it.
+- Executing a small instruction subset is not Windows compatibility.
+- Imported addresses must come only from an explicit, trusted resolver.
+- No game compatibility or performance claim is valid until reproducible tests pass on physical ARM64 hardware.
+
+The target hardware is Android ARM64, initially Helio G100 / Mali-G57. That is a validation target, not a statement that this code currently runs Windows software on the phone.

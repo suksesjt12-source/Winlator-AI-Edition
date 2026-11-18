@@ -1,8 +1,7 @@
 #include "aie/pe_image.hpp"
 
-#include <algorithm>
 #include <cstring>
-#include <limits>
+#include <utility>
 
 namespace aie::engine {
 namespace {
@@ -62,11 +61,15 @@ PeParseResult inspect_pe_image(const std::uint8_t* data, std::size_t size) {
     info.machine = machine;
     info.section_count = section_count;
 
+    std::size_t directory_offset = 0;
+    std::size_t directory_count_offset = 0;
     if (magic == 0x10b) {
         if (optional_size < 96) return fail("PE32 optional header is truncated.");
         info.format = PeFormat::PE32;
         info.entry_point_rva = u32(optional + 16);
         info.preferred_image_base = u32(optional + 28);
+        directory_count_offset = 92;
+        directory_offset = 96;
         info.architecture = machine == 0x014c ? PeArchitecture::X86
                                                : PeArchitecture::Unsupported;
     } else if (magic == 0x20b) {
@@ -74,6 +77,8 @@ PeParseResult inspect_pe_image(const std::uint8_t* data, std::size_t size) {
         info.format = PeFormat::PE32Plus;
         info.entry_point_rva = u32(optional + 16);
         info.preferred_image_base = u64(optional + 24);
+        directory_count_offset = 108;
+        directory_offset = 112;
         info.architecture = machine == 0x8664 ? PeArchitecture::X86_64
                                                : PeArchitecture::Unsupported;
     } else {
@@ -82,6 +87,25 @@ PeParseResult inspect_pe_image(const std::uint8_t* data, std::size_t size) {
 
     if (info.architecture == PeArchitecture::Unsupported)
         return fail("PE machine type and optional-header format are unsupported.");
+
+    info.section_alignment = u32(optional + 32);
+    info.file_alignment = u32(optional + 36);
+    info.size_of_image = u32(optional + 56);
+    info.size_of_headers = u32(optional + 60);
+
+    const std::uint32_t directory_count = u32(optional + directory_count_offset);
+    if (directory_count > 1) {
+        if (!range_ok(directory_offset + 8, 8, optional_size))
+            return fail("PE import data directory is truncated.");
+        info.import_directory.rva = u32(optional + directory_offset + 8);
+        info.import_directory.size = u32(optional + directory_offset + 12);
+    }
+    if (directory_count > 5) {
+        if (!range_ok(directory_offset + 5 * 8, 8, optional_size))
+            return fail("PE relocation data directory is truncated.");
+        info.relocation_directory.rva = u32(optional + directory_offset + 5 * 8);
+        info.relocation_directory.size = u32(optional + directory_offset + 5 * 8 + 4);
+    }
 
     const std::size_t section_table = optional_offset + optional_size;
     const std::size_t table_bytes = static_cast<std::size_t>(section_count) * 40;

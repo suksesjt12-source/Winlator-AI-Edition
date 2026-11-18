@@ -19,6 +19,11 @@ struct PeSection {
     std::uint32_t characteristics{};
 };
 
+struct PeDataDirectory {
+    std::uint32_t rva{};
+    std::uint32_t size{};
+};
+
 struct PeImageInfo {
     PeArchitecture architecture{PeArchitecture::Unsupported};
     PeFormat format{PeFormat::PE32};
@@ -26,6 +31,12 @@ struct PeImageInfo {
     std::uint16_t section_count{};
     std::uint32_t entry_point_rva{};
     std::uint64_t preferred_image_base{};
+    std::uint32_t section_alignment{};
+    std::uint32_t file_alignment{};
+    std::uint32_t size_of_image{};
+    std::uint32_t size_of_headers{};
+    PeDataDirectory import_directory{};
+    PeDataDirectory relocation_directory{};
     std::vector<PeSection> sections;
 };
 
@@ -35,7 +46,7 @@ struct PeParseResult {
     std::string error;
 };
 
-// Parses and validates PE metadata only. It does not map, relocate, link, or execute code.
+// Inspects PE metadata. It does not map or execute application code.
 PeParseResult inspect_pe_image(const std::uint8_t* data, std::size_t size);
 PeParseResult inspect_pe_image(const std::vector<std::uint8_t>& data);
 

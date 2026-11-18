@@ -1,0 +1,25 @@
+name: Independent Native Engine Core
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "engine/**"
+      - ".github/workflows/native-engine.yml"
+  pull_request:
+    paths:
+      - "engine/**"
+      - ".github/workflows/native-engine.yml"
+  workflow_dispatch:
+
+jobs:
+  test-pe-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native engine core
+        run: cmake -S engine -B build/engine -DCMAKE_BUILD_TYPE=Release
+      - name: Build native engine core
+        run: cmake --build build/engine --parallel 2
+      - name: Test PE image parser
+        run: ctest --test-dir build/engine --output-on-failure

@@ -1,44 +1,46 @@
 # Winlator AI Edition
 
-**An upstream Winlator ARM64 runtime with a redesigned AI Edition launcher, custom artwork and an offline device advisor.**
+**An Android Windows-compatibility project transitioning from an upstream Winlator frontend to an independently developed ARM64 execution engine.**
 
-## Current development focus
+## Two development tracks
 
-The app now has its own Android launch screen rather than opening directly into the original Winlator navigation screen. The new home dashboard provides entry points for Game Library, Containers, AI Assistant, and Components & Settings. The Windows compatibility runtime remains based on upstream Winlator.
+The existing Android application still uses the upstream Winlator runtime. In parallel, a separate native engine core is now being developed under `engine/`. The native core is intended to become the long-term execution backend; it is not yet capable of running Windows applications.
 
-## Visual identity
+## Independent engine: current status
 
-- Custom AI Edition cover artwork is used in the launcher hero and Android adaptive application icon.
-- New dark navy interface with cyan and violet accents.
-- The new LauncherActivity is the Android MAIN/LAUNCHER activity. The original Winlator MainActivity is retained as an internal runtime workspace.
+- Bounds-checked PE32 / PE32+ executable metadata parser.
+- x86 and x86-64 machine-type detection.
+- Entry-point, image-base and section-table inspection.
+- Native CMake test target and GitHub Actions test workflow.
 
-## Download
+**Important:** the current native engine is an initial loader-analysis milestone, not a working Windows emulator. It does not yet map or execute PE images, translate x86/x64 instructions to ARM64, implement Windows APIs, or provide Direct3D/audio/input compatibility.
 
-- [GitHub Releases — direct APK assets](https://github.com/suksesjt12-source/Winlator-AI-Edition/releases)
-- [GitHub Actions — upstream build](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions)
+## Android application today
 
-Open the newest prerelease and download `app-debug.apk` directly. The workflow also publishes a SHA-256 checksum. Debug APKs are development builds and may require allowing installation from the browser or file manager.
+- Custom AI Edition dashboard, cover art and application icon.
+- Offline, rule-based device advisor.
+- Existing container, shortcut, file-management, input and runtime component flows supplied by upstream Winlator.
+- Distinct Android application ID: `com.winlator.aiedition`.
 
-## What is included
+The current installable APK is still upstream-runtime-based. The independent native engine is tested separately as a host-native C++ component and has not yet been integrated as an Android execution backend.
 
-- Upstream Winlator Android application and its container, shortcut, file-manager, input-control and runtime component flows.
-- A custom launcher dashboard and app identity.
-- An AI Assistant screen with device and memory information plus offline, rule-based setup guidance.
-- ARM64 build target and a distinct Android application ID: `com.winlator.aiedition`.
+## Downloads and builds
 
-## Important limitations
+- [GitHub Releases — Android debug APK](https://github.com/suksesjt12-source/Winlator-AI-Edition/releases)
+- [GitHub Actions — Android and native-engine builds](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions)
 
-- The launcher redesign does not replace the underlying Wine, Box64 or graphics translation engines. Those remain from the upstream Winlator project.
-- The Game Library, Containers and Components & Settings actions open the upstream runtime's corresponding management screens. The new AI Edition dashboard is the first screen; a complete replacement of every internal management screen is a separate development phase.
-- The offline assistant provides recommendations only. It does not automatically change CPU/GPU clocks or modify Android system settings.
-- Wine, Box64, DXVK, drivers and other runtime components may still need to be installed through the app's component-management flow.
-- CI compilation does not prove installation or game compatibility on a physical device. Helio G100 / Mali-G57 testing remains outstanding.
-- This is a debug build, not a signed production release.
+A successful CI build validates compilation and unit tests only. It does not prove that Windows games run on a physical device. Helio G100 / Mali-G57 hardware validation remains outstanding.
 
-## Build
+## Planned independent runtime layers
 
-The **Upstream Winlator AI Build** workflow checks out the upstream repository and its app, Vortek and Gladio submodules, applies this repository's launcher/branding/assistant overlay, then runs Gradle `assembleDebug`. It uploads the APK and publishes direct prerelease assets.
+1. PE loader: map image sections, apply relocations, resolve imports, TLS and exception metadata.
+2. x86/x86-64 execution: interpreter or JIT translation to ARM64.
+3. Windows ABI and system services: processes, threads, memory, files, registry and synchronization.
+4. Graphics, audio and input compatibility layers.
+5. Android process/container manager, per-game configuration and diagnostics.
+
+Each layer must have tests and explicit compatibility limits. No game-performance claim will be made before real-device validation.
 
 ## Licensing
 
-Original project additions are under the MIT License. Upstream Winlator and third-party dependencies retain their own licenses and copyright notices, including LGPL-2.1 where applicable.
+Original project additions are under the MIT License. Upstream Winlator and third-party dependencies retain their own licenses and copyright notices, including LGPL-2.1 where applicable. Any future instruction-translation or compatibility dependency must retain its own license and notices.

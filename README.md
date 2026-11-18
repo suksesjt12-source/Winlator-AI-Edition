@@ -4,7 +4,7 @@
 
 ## Two development tracks
 
-The existing Android application still uses the upstream Winlator runtime. In parallel, a separate native engine core is being developed under `engine/` as the intended long-term execution backend. The native core now maps PE images and executes a tiny x86-64 instruction subset in tests, but it cannot yet run ordinary Windows applications.
+The current Android application is based on the upstream Winlator runtime. The custom AI Edition launcher and advisor are layered on top of that runtime. In parallel, a separate native engine core is developed under `engine/` as a possible long-term execution backend.
 
 ## Independent engine: current status
 
@@ -14,11 +14,11 @@ The existing Android application still uses the upstream Winlator runtime. In pa
 - PE header/section mapping, PE32 HIGHLOW and PE32+ DIR64 relocations.
 - Import descriptor/thunk parsing through an explicit caller-supplied resolver.
 - A deliberately small x86-64 interpreter subset (NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, short JMP/JE/JNE).
-- JNI bridge packaged into the Android APK for native engine status and PE metadata inspection.
+- JNI shared library integrated into the upstream-based APK. The AI Assistant can inspect selected .exe files and display PE architecture, section count, entry RVA and image size.
 - Debug-mode native CMake tests for parsing, loading, relocations, import resolution and interpreter behavior.
-- An Android NDK cross-compile job targeting `arm64-v8a` that publishes the native static library as a CI artifact.
+- An Android NDK cross-build targeting `arm64-v8a`.
 
-**Important:** this is not yet a working Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no full x86/x64-to-ARM64 execution engine, Windows API layer, or graphics/audio/input compatibility. JNI integration is limited to reporting native status and inspecting PE headers.
+**Important:** this is not yet a working standalone Windows emulator. The import resolver does not provide Windows DLLs, and the CPU interpreter supports only a handful of instructions. There is no general x86/x64-to-ARM64 execution engine, Windows API layer, or independent graphics/audio/input compatibility. The JNI integration only reports engine status and inspects PE metadata; it does not launch or execute an .exe file.
 
 ## Android application today
 
@@ -26,8 +26,9 @@ The existing Android application still uses the upstream Winlator runtime. In pa
 - Offline, rule-based device advisor.
 - Existing container, shortcut, file-management, input and runtime component flows supplied by upstream Winlator.
 - Distinct Android application ID: `com.winlator.aiedition`.
+- JNI bridge included in the upstream build to inspect PE metadata; the upstream Wine/Box64 runtime remains the actual Windows execution backend.
 
-The current installable APK is still upstream-runtime-based. The independent native engine is built/tested separately and its ARM64 static library is not yet linked into the APK or called through JNI.
+The current installable APK is still upstream-runtime-based. The native core is built as a JNI shared library inside that APK, but it is not yet a capable Windows execution engine and is not a replacement for Wine/Box64.
 
 ## Downloads and builds
 

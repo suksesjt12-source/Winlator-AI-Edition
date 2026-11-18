@@ -1,6 +1,6 @@
 # AI Edition Native Execution Engine
 
-This is the independent native-engine development track. It is separate from the Android launcher and upstream Winlator runtime.
+This is the independent native-engine development track. It is integrated into the upstream-based Android APK as a JNI shared library for status reporting and PE metadata inspection. It remains separate from the Wine/Box64 compatibility runtime used to launch Windows applications.
 
 ## Implemented core
 
@@ -12,14 +12,14 @@ This is the independent native-engine development track. It is separate from the
 - A small x86-64 interpreter subset: NOP, RET, MOV immediate/register, XOR register, ADD/SUB/CMP RAX immediate, and short JMP/JE/JNE.
 - A test that runs a tiny synthetic entry-point sequence from mapped PE section bytes.
 - Debug-mode CMake tests for valid, malformed, relocation, import, branch and interpreter cases.
-- An Android NDK build of the core for arm64-v8a.
-- A JNI shared library packaged into the Android APK, exposing native-engine status and PE metadata inspection to Java.
+- Android NDK cross-build targeting arm64-v8a.
+- JNI shared library packaged into the upstream-based Android APK. The Java assistant can request PE32/PE32+ metadata inspection of a user-selected .exe file.
 
 ## Explicit limitations
 
-This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The PE loader does not automatically transfer control to a loaded image's entry point. The test only passes a synthetic byte sequence from the mapped section to the subset interpreter; this does not demonstrate execution of a real Windows program. The ARM64 cross-build is a compile check, not a device execution test.
+This is still **not a complete Windows emulator**. The import resolver is a callback; no Windows DLL exports are implemented. The interpreter is intentionally a tiny instruction subset and is not a general x86-64 CPU. The PE loader does not automatically transfer control to a loaded image's entry point. The synthetic test does not demonstrate execution of a real Windows program. JNI currently exposes status reporting and executable metadata inspection only; it does not execute the selected file. Android CI confirms compilation, not correct behavior on a physical device.
 
-Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread and memory APIs, system DLLs, exception dispatch, TLS callbacks, registry, graphics, audio, input, Android JNI integration or game compatibility. The ARM64 cross-build is a compile check only; it is not a device execution test.
+Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread model, system DLLs, Windows API layer, TLS callbacks, exception dispatch, graphics, audio, input, and game compatibility. The existing upstream Wine/Box64 runtime remains responsible for Windows application execution.
 
 ## Planned layers
 
@@ -27,7 +27,7 @@ Not implemented: full x86/x64 instruction decoding, JIT, Windows process/thread 
 2. Expand x86/x64 CPU semantics and differential tests, then evaluate a separately licensed decoder/JIT backend.
 3. Implement a Windows ABI/system-service compatibility layer and module registry.
 4. Add graphics/audio/input backends and connect them to Android surfaces.
-5. Integrate the engine into the Android app through JNI only after the native APIs are stable.
+5. Develop the native execution path independently from the upstream Wine/Box64 path, adding device validation only after the CPU and OS layers are sufficient.
 
 ## Safety and validation gates
 

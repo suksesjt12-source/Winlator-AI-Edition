@@ -1,32 +1,47 @@
 # Winlator AI Edition
 
-**Android ARM64 launcher prototype with a local gaming assistant and conservative profile recommendations.**
+**An Android ARM64 build of upstream Winlator with an added offline AI Assistant screen.**
 
-> **Status: Phase 1.** This is an Android application shell and a GitHub Actions debug-APK pipeline. It is not yet a complete Windows compatibility layer and cannot currently launch Windows `.exe` games.
+> **Current status:** The upstream-based debug APK compiled and uploaded successfully in GitHub Actions on 18 November 2026. It has not yet been installed or tested on a physical Helio G100 / Mali-G57 device. A successful CI build is not proof of game compatibility.
 
-## Included in Phase 1
-- Device information: Android version, supported ABI, device identifiers and available memory.
-- Local assistant that explains compatibility and performance trade-offs without an API key.
-- Advisory profiles: Balanced, Performance and Cool & Stable.
-- Initial game-profile screen.
-- No root requirement and no changes to Android system settings.
-- GitHub Actions workflow to build and upload a debug APK.
+## Download the correct APK
 
-## Build APK
-1. Open the **Actions** tab in this repository.
-2. Select **Android CI**.
-3. Open the latest successful run.
-4. Download the `Winlator-AI-Edition-debug` artifact.
+For the actual Winlator runtime base, use the **Upstream Winlator AI Build** workflow and download the artifact named **Winlator-AI-Edition-upstream-debug**:
 
-The build uses JDK 17, Gradle 8.9 and Android Gradle Plugin 8.7.3.
+- [Latest upstream integration build](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions/runs/44256112036)
+- [Download upstream debug artifact](https://github.com/suksesjt12-source/Winlator-AI-Edition/actions/runs/44256112036/artifacts/14405669003)
 
-## Important technical scope
-A launcher UI cannot execute Windows programs by itself. Real `.exe` support requires compatible ARM64 builds and integration of Wine, Box64 and suitable graphics translation components (for example DXVK for supported Direct3D paths). Those components must be integrated, licensed, packaged and tested separately. They are **not** bundled in this prototype.
+The artifact is a ZIP containing the debug APK. Extract it on Android, then install the APK. Android may ask you to allow installation from the file manager.
 
-The assistant in this phase is a local rule-based helper, not a connected large language model. Its optimization output is advisory and does not overclock the device or alter system settings.
+The separate **Android CI** artifact named **Winlator-AI-Edition-debug** is only the original standalone prototype. It is not the Winlator runtime build and cannot run Windows EXE files.
 
-## Initial target
-Android 14, ARM64, MediaTek Helio G100 / Mali-G57 class hardware, 8 GB RAM. Performance recommendations must be validated per game and runtime; they are not guaranteed FPS results.
+## Included in the upstream-based build
 
-## License
-Project source is provided under the MIT License. Third-party runtime components retain their own licenses and are not bundled by this prototype.
+- Upstream Winlator Android application and its existing container, shortcut, file-management and input-control flows.
+- Upstream native application modules checked out through the original Git submodules, including Vortek and Gladio.
+- An added AI Assistant screen reachable from the Winlator navigation drawer.
+- Local device information: Android version, ABI, SoC model when exposed by Android, and memory information.
+- Conservative offline guidance for graphics compatibility and starting performance profiles.
+
+## Important limitations
+
+- The artifact is a **debug build**, not a signed release.
+- The APK build has succeeded in CI, but installation and game execution have not yet been verified on physical hardware.
+- Wine, Box64, graphics translation layers and other runtime components remain subject to the upstream Winlator installation and component-management flow. The build does not bundle every game-specific dependency or guarantee every component is already installed.
+- The added assistant is an offline rule-based advisor. It is not a connected large language model and does not automatically change container settings, CPU/GPU clocks or Android system settings.
+- Do not assume Turnip is suitable for Mali GPUs. Graphics drivers must match the device GPU and the renderer available in the upstream build.
+
+## Build workflows
+
+- **Upstream Winlator AI Build:** builds the upstream Winlator source, applies the AI Assistant extension, and uploads the upstream debug artifact.
+- **Android CI:** builds the original standalone prototype and uploads its separate debug artifact.
+
+The upstream workflow uses JDK 17 and installs Android SDK/NDK/CMake build dependencies on the GitHub runner.
+
+## Target device
+
+Initial target: Android 14, ARM64, MediaTek Helio G100 / Mali-G57 class hardware, 8 GB RAM. This is a development target, not a statement that the APK has already been verified on that device.
+
+## Licensing
+
+Original project additions are under the MIT License. The upstream Winlator application and native dependencies retain their own licenses and notices, including LGPL-2.1 where applicable. Third-party runtime components retain their individual licenses.

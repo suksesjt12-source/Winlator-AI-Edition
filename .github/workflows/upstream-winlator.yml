@@ -60,7 +60,10 @@ jobs:
 
       - name: Build Winlator AI Edition
         working-directory: upstream/app
-        run: ./gradlew --no-daemon assembleDebug
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload Winlator AI Edition APK
         uses: actions/upload-artifact@v4
